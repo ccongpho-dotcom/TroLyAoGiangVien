@@ -1,0 +1,34 @@
+{
+  "version": "BMTH-OPEN-90P-20261119",
+  "sourceFile": "Tài liệu (bản mở).pdf",
+  "sourceSha256": "283201fd78e4dc375ec91ea770fee40eedeb1b90230aba0611a9e7a3ac1cc9d9",
+  "createdDate": "2026-11-19",
+  "timezone": "Asia/Ho_Chi_Minh",
+  "sourcePdfPageCount": 90,
+  "sourcePrintedRange": [
+    7,
+    96
+  ],
+  "textEmptyPdfPages": [
+    54
+  ],
+  "chapterCount": 5,
+  "faqCount": 100,
+  "faqCountPerChapter": {
+    "1": 20,
+    "2": 20,
+    "3": 20,
+    "4": 20,
+    "5": 20
+  },
+  "chunkCount": 159,
+  "publicationApproved": true,
+  "publicationApprovalSource": "owner_statement_in_conversation",
+  "publicationApprovalRecordedDate": "2026-11-21",
+  "targetRepository": "ccongpho-dotcom/TroLyAoGiangVien",
+  "targetSiteUrl": "https://ccongpho-dotcom.github.io/TroLyAoGiangVien/",
+  "legalReferencesIndependentlyVerified": false,
+  "deploymentPerformed": false,
+  "extractionNote": "Văn bản trích trực tiếp từ PDF; không OCR nội dung chỉ có trong hình. Xem PDF gốc để đối chiếu hình, bảng và biểu tượng. Chỉ bỏ số trang chân trang, không sửa nội dung nguồn.",
+  "faqNote": "100 FAQ nền tảng mới, 20/chương; KHÔNG phải 500 câu mới. Câu trả lời biên soạn lại, có trang và mốc trích đoạn để đối chiếu. Không nhập lại FAQ cũ."
+}
