@@ -1,0 +1,15 @@
+{
+  // Máy chủ "Kiểm tra theo lớp" — tách biệt với bmth-k10-quiz (Tự kiểm tra).
+  "name": "tlagv-kiemtra",
+  "main": "src/index.js",
+  "compatibility_date": "2026-10-14",
+  "observability": { "enabled": true },
+  "vars": {
+    "ALLOWED_ORIGINS": "https://ccongpho-dotcom.github.io",
+    // Đặt "0" sau khi đã tạo tài khoản quản trị đầu tiên.
+    "SETUP_OPEN": "1"
+  },
+  "d1_databases": [
+    { "binding": "DB", "database_name": "tlagv-kiemtra-db", "database_id": "00000000-0000-0000-0000-000000000000" }
+  ]
+}

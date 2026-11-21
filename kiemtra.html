@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="description" content="Làm bài kiểm tra theo lớp trên TroLyAoGiangVien.">
+  <meta name="theme-color" content="#031326">
+  <meta name="robots" content="noindex">
+  <title>Kiểm tra theo lớp | TroLyAoGiangVien</title>
+  <link rel="icon" type="image/svg+xml" href="assets/ai-digital-logo.svg">
+  <link rel="stylesheet" href="assets/kiemtra.css?v=20261121-kt1">
+</head>
+<body>
+  <header class="kt-topbar">
+    <a class="kt-brand" href="kiemtra.html" aria-label="Kiểm tra theo lớp">
+      <img src="assets/ai-digital-logo.svg" alt="" width="40" height="40">
+      <span><strong>TroLyAoGiangVien</strong><small>Kiểm tra theo lớp</small></span>
+    </a>
+  </header>
+
+  <main class="kt-main">
+    <div class="kt-narrow">
+      <div id="kt-alert" class="kt-alert" role="alert" hidden></div>
+
+      <!-- Bước 1: nhập mã đề -->
+      <section id="step-code" class="kt-card" hidden>
+        <p class="kt-eyebrow">Kiểm tra theo lớp</p>
+        <h1>Nhập mã đề</h1>
+        <p class="kt-lead">Nhập mã 6 ký tự giáo viên cung cấp, hoặc dùng camera điện thoại quét mã QR trên màn chiếu.</p>
+        <form id="code-form" novalidate>
+          <label class="kt-field">
+            <span>Mã đề</span>
+            <input id="code-input" class="kt-input kt-code-input" inputmode="text" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="8" placeholder="ABC123" required>
+          </label>
+          <button class="kt-btn kt-btn-primary kt-btn-block" type="submit">Tiếp tục</button>
+        </form>
+      </section>
+
+      <!-- Bước 2: thông tin đề và họ tên -->
+      <section id="step-info" class="kt-card" hidden>
+        <p class="kt-eyebrow">Mã đề <span id="info-code" class="kt-code"></span></p>
+        <h1 id="info-title"></h1>
+        <p class="kt-lead">Giáo viên: <strong id="info-teacher"></strong></p>
+        <div class="kt-facts">
+          <div class="kt-fact"><b id="info-count"></b><span>câu hỏi</span></div>
+          <div class="kt-fact"><b id="info-duration"></b><span>phút</span></div>
+          <div class="kt-fact"><b id="info-state"></b><span id="info-state-note">trạng thái</span></div>
+        </div>
+        <div id="info-schedule" class="kt-alert warn" hidden></div>
+        <form id="name-form" novalidate>
+          <label class="kt-field">
+            <span>Họ và tên</span>
+            <input id="name-input" class="kt-input" autocomplete="name" maxlength="80" placeholder="Ví dụ: Nguyễn Văn An" required>
+            <small>Ghi đầy đủ họ và tên để giáo viên ghi điểm đúng người.</small>
+          </label>
+          <p id="info-rules" class="kt-muted" style="font-size:.88rem;margin:0 0 14px"></p>
+          <button id="start-btn" class="kt-btn kt-btn-primary kt-btn-block" type="submit">Bắt đầu làm bài</button>
+        </form>
+        <p class="kt-center" style="margin:14px 0 0"><button id="change-code" class="kt-btn kt-btn-ghost kt-btn-sm" type="button">Nhập mã khác</button></p>
+      </section>
+
+      <!-- Bước 3: làm bài -->
+      <section id="step-exam" hidden>
+        <div class="kt-exam-bar">
+          <div><span class="sr-only">Thời gian còn lại</span><span id="timer" class="kt-timer" aria-live="off">--:--</span></div>
+          <div id="progress" class="kt-progress"></div>
+        </div>
+        <div class="kt-card">
+          <p id="q-number" class="kt-qnum"></p>
+          <h2 id="q-text" class="kt-qtext" tabindex="-1"></h2>
+          <div id="q-options" class="kt-options" role="radiogroup" aria-labelledby="q-text"></div>
+          <div class="kt-nav">
+            <button id="prev-btn" class="kt-btn kt-btn-ghost" type="button">← Câu trước</button>
+            <button id="next-btn" class="kt-btn kt-btn-ghost" type="button">Câu sau →</button>
+          </div>
+          <div id="dots" class="kt-dots" aria-label="Danh sách câu hỏi"></div>
+        </div>
+        <div class="kt-card">
+          <div id="submit-confirm" class="kt-alert warn" hidden>
+            <p id="submit-confirm-text" style="margin:0 0 10px"></p>
+            <div class="kt-row">
+              <button id="submit-yes" class="kt-btn kt-btn-primary" type="button">Nộp bài</button>
+              <button id="submit-no" class="kt-btn kt-btn-ghost" type="button">Làm tiếp</button>
+            </div>
+          </div>
+          <button id="submit-btn" class="kt-btn kt-btn-primary kt-btn-block" type="button">Nộp bài</button>
+          <p id="save-note" class="kt-save-note" aria-live="polite"></p>
+        </div>
+      </section>
+
+      <!-- Bước 4: kết quả -->
+      <section id="step-done" class="kt-card kt-center" hidden>
+        <p class="kt-eyebrow">Đã nộp bài</p>
+        <h1 id="done-title"></h1>
+        <p class="kt-muted" id="done-name"></p>
+        <div id="done-score" hidden>
+          <div class="kt-score"><b id="done-score-value"></b><span id="done-score-total"></span></div>
+          <p><strong id="done-score-ten"></strong></p>
+        </div>
+        <div id="done-pending" hidden>
+          <p class="kt-alert">Bài làm đã được ghi nhận. Giáo viên chưa công bố điểm.</p>
+          <button id="check-score" class="kt-btn kt-btn-ghost" type="button">Xem điểm</button>
+        </div>
+      </section>
+    </div>
+  </main>
+  <footer class="kt-footer">TroLyAoGiangVien · Kiểm tra theo lớp</footer>
+
+  <script src="config.js?v=20261121-kt1"></script>
+  <script src="assets/kiemtra.js?v=20261121-kt1"></script>
+</body>
+</html>

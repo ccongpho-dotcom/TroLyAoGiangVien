@@ -247,3 +247,10 @@ input:focus, select:focus, textarea:focus { border-color: #27a79e; box-shadow: 0
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; animation-duration: .01ms !important; }
 }
+
+/* Lối vào "Kiểm tra theo lớp" (chức năng riêng, tách biệt với Tự kiểm tra). */
+.class-exam-link { margin: 18px auto 0; max-width: 520px; padding: 12px 16px; display: flex; align-items: center; justify-content: space-between; gap: 14px; border: 1px solid #e6c777; border-radius: 14px; color: #3d2f08; background: #fff8e6; text-align: left; text-decoration: none; box-shadow: 0 8px 22px rgba(8, 35, 66, .06); transition: background .15s ease, border-color .15s ease; }
+.class-exam-link b { display: block; color: #0a294c; }
+.class-exam-link small { display: block; color: #5a4a1c; font-size: max(13px, .84rem); }
+.class-exam-link > span:last-child { font-size: 1.3rem; color: #a77a12; }
+.class-exam-link:hover, .class-exam-link:focus-visible { background: #fdf0cf; border-color: #d4a73c; }

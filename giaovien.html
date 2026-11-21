@@ -1,0 +1,230 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#031326">
+  <meta name="robots" content="noindex">
+  <title>Giáo viên · Kiểm tra theo lớp | TroLyAoGiangVien</title>
+  <link rel="icon" type="image/svg+xml" href="assets/ai-digital-logo.svg">
+  <link rel="stylesheet" href="assets/kiemtra.css?v=20261121-kt1">
+</head>
+<body>
+  <header class="kt-topbar">
+    <a class="kt-brand" href="giaovien.html">
+      <img src="assets/ai-digital-logo.svg" alt="" width="40" height="40">
+      <span><strong>TroLyAoGiangVien</strong><small>Giáo viên · Kiểm tra theo lớp</small></span>
+    </a>
+    <div id="top-actions" class="kt-top-actions" hidden>
+      <span id="top-user" class="kt-user"></span>
+      <button id="btn-password" class="kt-btn kt-btn-light" type="button">Đổi mật khẩu</button>
+      <button id="btn-logout" class="kt-btn kt-btn-light" type="button">Đăng xuất</button>
+    </div>
+  </header>
+
+  <main class="kt-main">
+    <div id="alert" class="kt-alert" role="alert" hidden></div>
+
+    <!-- Thiết lập lần đầu -->
+    <section id="view-setup" class="kt-card kt-narrow" hidden>
+      <p class="kt-eyebrow">Thiết lập lần đầu</p>
+      <h1>Tạo tài khoản quản trị</h1>
+      <p class="kt-lead">Tài khoản này dùng để tạo tài khoản cho các giáo viên. Chỉ tạo được một lần.</p>
+      <form id="setup-form" novalidate>
+        <label class="kt-field"><span>Họ và tên</span><input name="displayName" class="kt-input" autocomplete="name" required></label>
+        <label class="kt-field"><span>Tên đăng nhập</span><input name="username" class="kt-input" autocomplete="username" autocapitalize="none" spellcheck="false" required><small>3–32 ký tự, chữ không dấu, số, dấu chấm hoặc gạch ngang.</small></label>
+        <label class="kt-field"><span>Mật khẩu</span><input name="password" type="password" class="kt-input" autocomplete="new-password" minlength="8" required><small>Tối thiểu 8 ký tự.</small></label>
+        <button class="kt-btn kt-btn-primary kt-btn-block" type="submit">Tạo tài khoản quản trị</button>
+      </form>
+    </section>
+
+    <!-- Đăng nhập -->
+    <section id="view-login" class="kt-card kt-narrow" hidden>
+      <p class="kt-eyebrow">Dành cho giáo viên</p>
+      <h1>Đăng nhập</h1>
+      <p class="kt-lead">Dùng tài khoản do quản trị cấp. Học viên làm bài tại trang <a href="kiemtra.html">Kiểm tra theo lớp</a>.</p>
+      <form id="login-form" novalidate>
+        <label class="kt-field"><span>Tên đăng nhập</span><input name="username" class="kt-input" autocomplete="username" autocapitalize="none" spellcheck="false" required></label>
+        <label class="kt-field"><span>Mật khẩu</span><input name="password" type="password" class="kt-input" autocomplete="current-password" required></label>
+        <button class="kt-btn kt-btn-primary kt-btn-block" type="submit">Đăng nhập</button>
+      </form>
+    </section>
+
+    <!-- Ứng dụng -->
+    <section id="view-app" hidden>
+      <div class="kt-tabs" role="tablist" aria-label="Chức năng">
+        <button class="kt-tab" role="tab" id="tab-exams" aria-controls="panel-exams" aria-selected="true" type="button">Đợt kiểm tra</button>
+        <button class="kt-tab" role="tab" id="tab-sets" aria-controls="panel-sets" aria-selected="false" type="button">Bộ câu hỏi</button>
+        <button class="kt-tab" role="tab" id="tab-accounts" aria-controls="panel-accounts" aria-selected="false" type="button" hidden>Tài khoản giáo viên</button>
+      </div>
+
+      <!-- Đợt kiểm tra -->
+      <div id="panel-exams" role="tabpanel" aria-labelledby="tab-exams">
+        <div id="exams-home">
+          <div class="kt-row kt-between" style="margin-bottom:14px">
+            <h2 style="margin:0;color:var(--navy-800)">Đợt kiểm tra</h2>
+            <button id="btn-new-exam" class="kt-btn kt-btn-primary" type="button">+ Tạo đợt kiểm tra</button>
+          </div>
+          <form id="exam-form" class="kt-card" style="margin-bottom:18px" hidden novalidate>
+            <h3>Tạo đợt kiểm tra mới</h3>
+            <p class="kt-lead">Mỗi đợt có một mã đề và mã QR riêng để học viên vào làm bài.</p>
+            <label class="kt-field"><span>Bộ câu hỏi</span><select name="setId" class="kt-select" required></select></label>
+            <label class="kt-field"><span>Tên đợt kiểm tra</span><input name="title" class="kt-input" maxlength="150" placeholder="Ví dụ: Kiểm tra 15 phút — Lớp CNTT 1"></label>
+            <div class="kt-grid-2">
+              <label class="kt-field"><span>Thời gian làm bài (phút)</span><input name="durationMin" type="number" class="kt-input" min="1" max="300" value="15" required></label>
+              <label class="kt-field"><span>Số câu mỗi học viên</span><input name="questionCount" type="number" class="kt-input" min="1"><small id="exam-count-note">Để trống = lấy tất cả các câu.</small></label>
+              <label class="kt-field"><span>Mở lúc</span><input name="opensAt" type="datetime-local" class="kt-input" required></label>
+              <label class="kt-field"><span>Đóng lúc</span><input name="closesAt" type="datetime-local" class="kt-input" required></label>
+            </div>
+            <div class="kt-list" style="margin-bottom:16px">
+              <label class="kt-check"><input type="checkbox" name="shuffle" checked><span><b>Trộn câu và đáp án</b><small>Mỗi học viên có thứ tự câu hỏi và phương án khác nhau. Nếu chọn số câu ít hơn bộ đề, mỗi người nhận một nhóm câu ngẫu nhiên.</small></span></label>
+              <label class="kt-check"><input type="checkbox" name="oneAttempt" checked><span><b>Mỗi người chỉ làm một lần</b><small>Máy đã nộp bài không vào làm lại được. Có thể xóa lượt làm trong bảng điểm để cho làm lại.</small></span></label>
+              <label class="kt-check"><input type="checkbox" name="showScore"><span><b>Công bố điểm ngay khi nộp bài</b><small>Có thể bật hoặc tắt bất cứ lúc nào trong trang kết quả.</small></span></label>
+            </div>
+            <div class="kt-row">
+              <button class="kt-btn kt-btn-primary" type="submit">Tạo đợt kiểm tra</button>
+              <button id="btn-cancel-exam" class="kt-btn kt-btn-ghost" type="button">Hủy</button>
+            </div>
+          </form>
+          <div id="exam-list" class="kt-list"></div>
+        </div>
+
+        <div id="exam-detail" hidden>
+          <button id="btn-back-exams" class="kt-btn kt-btn-ghost kt-btn-sm" type="button" style="margin-bottom:14px">← Danh sách đợt kiểm tra</button>
+          <div class="kt-card">
+            <div class="kt-row kt-between">
+              <div style="min-width:0">
+                <p class="kt-eyebrow">Đợt kiểm tra</p>
+                <h1 id="d-title" style="overflow-wrap:anywhere"></h1>
+                <p id="d-meta" class="kt-muted" style="margin:0"></p>
+              </div>
+              <span id="d-state" class="kt-badge"></span>
+            </div>
+            <div class="kt-share" style="margin-top:18px">
+              <div id="d-qr" class="kt-qr" aria-label="Mã QR vào làm bài"></div>
+              <div>
+                <p class="kt-muted" style="margin:0">Mã đề</p>
+                <p class="kt-code kt-bigcode" id="d-code" style="margin:0 0 6px"></p>
+                <p style="margin:0 0 12px"><a id="d-link" class="kt-link" target="_blank" rel="noopener"></a></p>
+                <div class="kt-row">
+                  <button id="btn-present" class="kt-btn kt-btn-primary" type="button">Chiếu lên lớp</button>
+                  <button id="btn-copy-link" class="kt-btn kt-btn-ghost" type="button">Sao chép liên kết</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="kt-card">
+            <h2>Điều khiển</h2>
+            <div class="kt-list" style="margin:12px 0">
+              <label class="kt-check"><input type="checkbox" id="d-show-score"><span><b>Công bố điểm cho học viên</b><small>Bật: học viên thấy điểm của mình ngay sau khi nộp, hoặc bấm “Xem điểm” nếu đã nộp trước đó.</small></span></label>
+            </div>
+            <div class="kt-row">
+              <label class="kt-field" style="margin:0;flex:1 1 220px"><span>Giờ đóng</span><input id="d-closes" type="datetime-local" class="kt-input"></label>
+              <button id="btn-save-close" class="kt-btn kt-btn-ghost" type="button" style="align-self:flex-end">Lưu giờ đóng</button>
+              <button id="btn-close-now" class="kt-btn kt-btn-ghost" type="button" style="align-self:flex-end">Đóng ngay</button>
+              <button id="btn-delete-exam" class="kt-btn kt-btn-danger" type="button" style="align-self:flex-end">Xóa đợt</button>
+            </div>
+          </div>
+
+          <div class="kt-card">
+            <div class="kt-row kt-between" style="margin-bottom:12px">
+              <h2 style="margin:0">Bảng điểm</h2>
+              <div class="kt-row">
+                <button id="btn-refresh" class="kt-btn kt-btn-ghost kt-btn-sm" type="button">Làm mới</button>
+                <button id="btn-export" class="kt-btn kt-btn-primary kt-btn-sm" type="button">Tải bảng điểm (Excel)</button>
+              </div>
+            </div>
+            <div id="d-summary" class="kt-summary"></div>
+            <div class="kt-table-wrap">
+              <table class="kt-table">
+                <thead><tr><th>STT</th><th>Họ và tên</th><th>Bắt đầu</th><th>Nộp bài</th><th>Số câu đúng</th><th>Điểm 10</th><th></th></tr></thead>
+                <tbody id="d-attempts"></tbody>
+              </table>
+            </div>
+            <p class="kt-muted" style="font-size:.84rem;margin:10px 0 0">Tự làm mới mỗi 15 giây. Tên có dấu ⚠ là trùng với người khác — kiểm tra lại. Xóa một lượt làm để học viên đó làm lại.</p>
+          </div>
+
+          <div class="kt-card">
+            <h2>Tỉ lệ trả lời đúng theo câu</h2>
+            <div class="kt-table-wrap" style="margin-top:12px">
+              <table class="kt-table">
+                <thead><tr><th>Câu</th><th>Nội dung</th><th>Đúng</th><th style="min-width:110px">Tỉ lệ</th></tr></thead>
+                <tbody id="d-stats"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Bộ câu hỏi -->
+      <div id="panel-sets" role="tabpanel" aria-labelledby="tab-sets" hidden>
+        <div class="kt-card" style="margin-bottom:18px">
+          <h2>Tải bộ câu hỏi từ Word</h2>
+          <p class="kt-lead">Soạn theo mẫu, lưu dạng .docx rồi chọn tệp. Hệ thống sẽ hiển thị trước để kiểm tra trước khi lưu.</p>
+          <div class="kt-row" style="margin-bottom:14px">
+            <a class="kt-btn kt-btn-ghost" href="assets/mau-bo-cau-hoi-kiem-tra.docx" download>Tải mẫu Word</a>
+            <label class="kt-btn kt-btn-primary" for="docx-input">Chọn tệp Word…</label>
+            <input id="docx-input" type="file" accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document" class="sr-only">
+          </div>
+          <div id="set-preview-wrap" hidden>
+            <div id="set-errors" class="kt-alert error" hidden></div>
+            <label class="kt-field"><span>Tên bộ câu hỏi</span><input id="set-title" class="kt-input" maxlength="150"></label>
+            <p id="set-summary" class="kt-muted" style="margin:0"></p>
+            <div class="kt-preview"><ol id="set-preview"></ol></div>
+            <div class="kt-row" style="margin-top:14px">
+              <button id="btn-save-set" class="kt-btn kt-btn-primary" type="button">Lưu bộ câu hỏi</button>
+              <button id="btn-cancel-set" class="kt-btn kt-btn-ghost" type="button">Hủy</button>
+            </div>
+          </div>
+        </div>
+        <h2 style="color:var(--navy-800)">Bộ câu hỏi của tôi</h2>
+        <div id="set-list" class="kt-list"></div>
+      </div>
+
+      <!-- Tài khoản (quản trị) -->
+      <div id="panel-accounts" role="tabpanel" aria-labelledby="tab-accounts" hidden>
+        <form id="teacher-form" class="kt-card" style="margin-bottom:18px" novalidate>
+          <h2>Tạo tài khoản giáo viên</h2>
+          <p class="kt-lead">Gửi tên đăng nhập và mật khẩu cho giáo viên; giáo viên nên đổi mật khẩu sau lần đăng nhập đầu.</p>
+          <div class="kt-grid-2">
+            <label class="kt-field"><span>Họ và tên</span><input name="displayName" class="kt-input" required></label>
+            <label class="kt-field"><span>Tên đăng nhập</span><input name="username" class="kt-input" autocapitalize="none" spellcheck="false" required><small>Ví dụ: gv.nguyenvanan</small></label>
+            <label class="kt-field"><span>Mật khẩu ban đầu</span><input name="password" class="kt-input" type="text" autocomplete="off" minlength="8" required><small>Tối thiểu 8 ký tự.</small></label>
+          </div>
+          <button class="kt-btn kt-btn-primary" type="submit">Tạo tài khoản</button>
+        </form>
+        <h2 style="color:var(--navy-800)">Danh sách tài khoản</h2>
+        <div id="teacher-list" class="kt-list"></div>
+      </div>
+    </section>
+
+    <!-- Đổi mật khẩu -->
+    <section id="view-password" class="kt-card kt-narrow" hidden>
+      <h1>Đổi mật khẩu</h1>
+      <form id="password-form" novalidate>
+        <label class="kt-field"><span>Mật khẩu hiện tại</span><input name="current" type="password" class="kt-input" autocomplete="current-password" required></label>
+        <label class="kt-field"><span>Mật khẩu mới</span><input name="next" type="password" class="kt-input" autocomplete="new-password" minlength="8" required><small>Tối thiểu 8 ký tự.</small></label>
+        <div class="kt-row">
+          <button class="kt-btn kt-btn-primary" type="submit">Lưu mật khẩu</button>
+          <button id="btn-cancel-password" class="kt-btn kt-btn-ghost" type="button">Hủy</button>
+        </div>
+      </form>
+    </section>
+  </main>
+
+  <div id="present" class="kt-present" hidden role="dialog" aria-modal="true" aria-label="Chiếu mã vào làm bài">
+    <p id="p-title" style="font-weight:800;color:#fff"></p>
+    <div id="p-qr" class="kt-qr"></div>
+    <div class="kt-code kt-bigcode" id="p-code"></div>
+    <p id="p-link"></p>
+    <button id="btn-close-present" class="kt-btn kt-btn-light" type="button">Đóng (Esc)</button>
+  </div>
+
+  <script src="config.js?v=20261121-kt1"></script>
+  <script src="assets/vendor/jszip.min.js"></script>
+  <script src="assets/vendor/qrcode-generator.js"></script>
+  <script src="assets/kiemtra-docx.js?v=20261121-kt1"></script>
+  <script src="assets/giaovien.js?v=20261121-kt1"></script>
+</body>
+</html>
