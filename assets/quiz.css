@@ -237,6 +237,11 @@ input:focus, select:focus, textarea:focus { border-color: #27a79e; box-shadow: 0
   .quiz-page .quiz-brand small { letter-spacing: .02em; }
   .quiz-page .quiz-topbar { gap: 8px; }
   .quiz-page .question-wrap { min-height: 0; }
+  /* Khi đang làm bài: ẩn tiêu đề lớn để câu hỏi hiện ngay đầu màn hình. */
+  .quiz-page .quiz-intro.is-collapsed { display: none; }
+  /* Ô số câu: một hàng cuộn ngang thay vì nhiều hàng. */
+  .quiz-page .question-dots { flex-wrap: nowrap; justify-content: flex-start; overflow-x: auto; padding: 4px 2px 6px; scroll-snap-type: x proximity; scrollbar-width: thin; }
+  .quiz-page .question-dot { flex: 0 0 44px; scroll-snap-align: center; }
 }
 
 @media (prefers-reduced-motion: reduce) {

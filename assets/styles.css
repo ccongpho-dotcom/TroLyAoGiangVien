@@ -247,7 +247,9 @@ a { color: inherit; }
 .chat-launcher svg { width: 29px; fill: none; stroke: #fff; stroke-width: 1.7; }
 .chat-launcher svg circle { fill: var(--gold); stroke: none; }
 .chat-label { font-size: .85rem; font-weight: 800; }
-.chat-pulse { position: absolute; inset: -5px; border: 1px solid rgba(57, 216, 202, .5); border-radius: inherit; animation: pulse 2.3s ease-out infinite; }
+.chat-pulse { position: absolute; inset: -5px; border: 1px solid rgba(57, 216, 202, .5); border-radius: inherit; opacity: 0; animation: pulse 2.3s ease-out 3; }
+/* Nút trợ lý chỉ gợi chú ý vài lần khi vào trang, sau đó đứng yên. */
+.chat-launcher { animation-iteration-count: 2; }
 @keyframes pulse { 0% { opacity: .9; transform: scale(.95); } 75%,100% { opacity: 0; transform: scale(1.14); } }
 @keyframes chatFloat { 0%, 100% { translate: 0 0; } 50% { translate: 0 -5px; } }
 
@@ -291,7 +293,20 @@ a { color: inherit; }
 .toast.show { visibility: visible; opacity: 1; transform: translate(-50%, 0); }
 
 .protected-content { -webkit-user-select: none; user-select: none; }
-@media print { .protected-content { display: none !important; } body::after { content: "Tài liệu chỉ được cung cấp ở chế độ đọc trực tuyến."; display: block; padding: 50px; font-size: 20px; } }
+.source-pdf-link { margin-top: 16px; padding: 12px 15px; display: flex; align-items: center; justify-content: space-between; gap: 12px; border: 1px solid #bfe0dd; border-radius: 12px; color: #0f5f5b; background: #fff; font-weight: 800; text-decoration: none; transition: border-color .2s ease, background .2s ease; }
+.source-pdf-link small { margin-left: 6px; color: #4d6376; font-weight: 600; }
+.source-pdf-link:hover, .source-pdf-link:focus-visible { border-color: #278f89; background: #effaf8; }
+
+/* In bài giảng gọn gàng: chỉ giữ nội dung chủ đề đang xem. */
+@media print {
+  .site-header, .reading-progress, .hero, .chat-launcher, .chat-panel, .toast, .topic-quiz-card, .source-pdf-link, .site-footer { display: none !important; }
+  body { background: #fff !important; }
+  .course-shell { margin: 0 !important; width: auto !important; border: 0 !important; box-shadow: none !important; }
+  .lesson-panel { padding: 0 !important; }
+  .content-section, .key-item, .objectives, .lesson-summary { break-inside: avoid; box-shadow: none !important; }
+  * { animation: none !important; transition: none !important; }
+  .reveal-target { opacity: 1 !important; transform: none !important; }
+}
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
@@ -566,7 +581,7 @@ html.overview-mode .view-mode-toggle {
   html:not(.overview-mode) .hero-actions { align-items: flex-start; flex-direction: column; gap: 12px; }
   html:not(.overview-mode) .hero-actions :is(.primary-button, .secondary-button) { display: inline-flex; min-height: 44px; padding: 14px 20px; max-width: 100%; font-size: 1rem; }
   html:not(.overview-mode) .hero-visual { display: grid; min-height: 270px; margin-top: -2px; }
-  html:not(.overview-mode) .chat-launcher { width: 60px; height: 60px; }
+  html:not(.overview-mode) .chat-launcher { width: 52px; height: 52px; opacity: .94; }
 }
 
 @media (max-width: 359px) and (pointer: coarse) {

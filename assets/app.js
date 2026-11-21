@@ -404,6 +404,15 @@
       ` : ""
     ].filter(Boolean).join("");
 
+    const pdfUrl = typeof config.pdfUrl === "string" ? config.pdfUrl.trim() : "";
+    const pdfRange = Array.isArray(topic.pdfRange) ? topic.pdfRange.map(Number).filter(Number.isInteger) : [];
+    const pdfLink = pdfUrl && pdfRange.length
+      ? `<a class="source-pdf-link" href="${escapeHtml(pdfUrl)}#page=${pdfRange[0]}" target="_blank" rel="noopener">
+          <span>Đọc tài liệu gốc <small>PDF · trang ${pdfRange[0]}${pdfRange[1] && pdfRange[1] !== pdfRange[0] ? `–${pdfRange[1]}` : ""}</small></span>
+          <span aria-hidden="true">↗</span>
+        </a>`
+      : "";
+
     panel.innerHTML = `
       <div class="lesson-kicker">CHỦ ĐỀ ${escapeHtml(topic.number)}</div>
       <h2 class="lesson-title">${escapeHtml(topic.title)}</h2>
@@ -411,12 +420,11 @@
       <section class="lesson-summary" aria-labelledby="summary-title-${escapeHtml(topic.id)}">
         <div class="summary-heading">
           <h3 id="summary-title-${escapeHtml(topic.id)}">Tóm tắt nội dung</h3>
-          <span class="summary-badge">Video / Âm thanh</span>
+          ${mediaPlayers ? `<span class="summary-badge">Video / Âm thanh</span>` : ""}
         </div>
         <p>${escapeHtml(summary)}</p>
-        ${mediaPlayers
-          ? `<div class="summary-media-grid">${mediaPlayers}</div>`
-          : `<div class="media-empty"><span aria-hidden="true">＋</span> Chưa gán video hoặc tệp âm thanh cho chủ đề này.</div>`}
+        ${mediaPlayers ? `<div class="summary-media-grid">${mediaPlayers}</div>` : ""}
+        ${pdfLink}
       </section>
       <section class="topic-quiz-card" aria-label="Tự kiểm tra chủ đề ${escapeHtml(topic.shortTitle || topic.title)}">
         <div>
@@ -720,8 +728,9 @@
     const key = event.key.toLowerCase();
     const selectionNode = window.getSelection()?.anchorNode;
     const selectionElement = selectionNode?.nodeType === Node.TEXT_NODE ? selectionNode.parentElement : selectionNode;
-    const protectedAction = event.target.closest(".protected-content") || selectionElement?.closest?.(".protected-content") || ["s", "p", "u"].includes(key);
-    if ((event.ctrlKey || event.metaKey) && ["c", "s", "p", "u"].includes(key) && protectedAction) {
+    // Chỉ nhắc khi sao chép trong bài giảng; không chặn in (Ctrl+P), lưu (Ctrl+S) hay xem mã (Ctrl+U).
+    const protectedAction = event.target.closest(".protected-content") || selectionElement?.closest?.(".protected-content");
+    if ((event.ctrlKey || event.metaKey) && key === "c" && protectedAction) {
       event.preventDefault();
       showToast("Nội dung bài giảng được cung cấp ở chế độ chỉ đọc.");
     }

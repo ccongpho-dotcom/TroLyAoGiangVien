@@ -44,6 +44,7 @@
   const draftLabel = document.getElementById("quiz-draft-label");
   const draftKey = "bmth-k10:quiz-draft:BMTH-OPEN-90P-20261119";
   const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
+  const quizIntro = document.querySelector(".quiz-intro");
   let sessionToken = "";
   let questions = [];
   let answers = {};
@@ -139,6 +140,7 @@
     setupSection.hidden = true;
     resultSection.hidden = true;
     sessionSection.hidden = false;
+    quizIntro?.classList.add("is-collapsed");
     renderQuestion();
     questionTitle.focus({ preventScroll: true });
     scrollTop();
@@ -308,6 +310,10 @@
       button.addEventListener("click", () => goToQuestion(index));
       questionDots.appendChild(button);
     });
+    const current = questionDots.children[currentIndex];
+    if (current && questionDots.scrollWidth > questionDots.clientWidth) {
+      questionDots.scrollLeft = current.offsetLeft - (questionDots.clientWidth - current.offsetWidth) / 2;
+    }
   }
 
   async function startQuiz(event) {
@@ -357,6 +363,7 @@
     sessionSection.hidden = true;
     resultSection.hidden = true;
     setupSection.hidden = false;
+    quizIntro?.classList.remove("is-collapsed");
     showAlert(saved ? "" : "Không lưu được bài vào bộ nhớ trình duyệt hoặc bài đã hết hạn.", saved ? "" : "error");
     updateDraftCard();
     updateAvailability();
@@ -413,6 +420,7 @@
       clearDraft(sessionToken);
       sessionSection.hidden = true;
       resultSection.hidden = false;
+      quizIntro?.classList.remove("is-collapsed");
       document.getElementById("result-title").focus({ preventScroll: true });
       scrollTop();
     } catch (error) {
