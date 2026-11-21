@@ -2,7 +2,7 @@
 
 Nguồn dữ liệu: bản tài liệu 90 trang; phiên bản BMTH-OPEN-90P-20261119.
 
-- Nội dung 5 chủ đề, 100 FAQ và PDF mới.
+- Nội dung 5 chủ đề và 100 FAQ. Tệp PDF tài liệu gốc không được đưa lên kho này.
 - Không có audio, bản chép audio hay câu hỏi mẫu của bản cũ.
 - Hỏi đáp, Tự kiểm tra và quản trị câu hỏi mặc định tạm dừng.
 - Repository đích: ccongpho-dotcom/TroLyAoGiangVien; địa chỉ dự kiến sau khi bật Pages: https://ccongpho-dotcom.github.io/TroLyAoGiangVien/.

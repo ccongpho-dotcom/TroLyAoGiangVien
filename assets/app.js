@@ -404,15 +404,6 @@
       ` : ""
     ].filter(Boolean).join("");
 
-    const pdfUrl = typeof config.pdfUrl === "string" ? config.pdfUrl.trim() : "";
-    const pdfRange = Array.isArray(topic.pdfRange) ? topic.pdfRange.map(Number).filter(Number.isInteger) : [];
-    const pdfLink = pdfUrl && pdfRange.length
-      ? `<a class="source-pdf-link" href="${escapeHtml(pdfUrl)}#page=${pdfRange[0]}" target="_blank" rel="noopener">
-          <span>Đọc tài liệu gốc <small>PDF · trang ${pdfRange[0]}${pdfRange[1] && pdfRange[1] !== pdfRange[0] ? `–${pdfRange[1]}` : ""}</small></span>
-          <span aria-hidden="true">↗</span>
-        </a>`
-      : "";
-
     panel.innerHTML = `
       <div class="lesson-kicker">CHỦ ĐỀ ${escapeHtml(topic.number)}</div>
       <h2 class="lesson-title">${escapeHtml(topic.title)}</h2>
@@ -424,7 +415,6 @@
         </div>
         <p>${escapeHtml(summary)}</p>
         ${mediaPlayers ? `<div class="summary-media-grid">${mediaPlayers}</div>` : ""}
-        ${pdfLink}
       </section>
       <section class="topic-quiz-card" aria-label="Tự kiểm tra chủ đề ${escapeHtml(topic.shortTitle || topic.title)}">
         <div>
