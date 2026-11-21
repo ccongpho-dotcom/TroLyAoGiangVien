@@ -588,4 +588,10 @@ html.overview-mode .view-mode-toggle {
   html:not(.overview-mode) .brand-copy strong { font-size: .82rem; letter-spacing: .055em; }
   html:not(.overview-mode) .view-mode-toggle { gap: 4px; padding-inline: 6px; font-size: .66rem; }
   html:not(.overview-mode) .view-mode-toggle svg { width: 14px; }
+  /* Màn hình rất hẹp: nút "Toàn cảnh" chỉ còn biểu tượng để tên trang không bị ngắt. */
+  html:not(.overview-mode) .brand-copy strong { font-size: .84rem; letter-spacing: 0; }
+  html:not(.overview-mode) .view-mode-toggle { width: 44px; padding: 0; }
+  html:not(.overview-mode) .view-mode-toggle span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 }
+/* Tên trang luôn nằm trọn một dòng, không ngắt giữa chữ. */
+.brand-copy strong { overflow-wrap: normal !important; white-space: nowrap; }
