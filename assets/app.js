@@ -28,8 +28,6 @@
   const courseShell = document.getElementById("chu-de");
   const tabsPrev = document.querySelector(".topic-scroll-prev");
   const tabsNext = document.querySelector(".topic-scroll-next");
-  const progress = document.getElementById("learning-progress");
-  const progressLabel = document.getElementById("learning-progress-label");
   const learningKey = "bmth-k10:learning:BMTH-OPEN-90P-20261119";
   const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
   const isTopic = (id) => topics.some((topic) => topic.id === id);
@@ -238,7 +236,6 @@
       <button class="topic-button" id="tab-${escapeHtml(topic.id)}" type="button" role="tab" aria-controls="lesson-panel" aria-selected="false" tabindex="-1" data-topic-id="${escapeHtml(topic.id)}">
         <span class="topic-number">${escapeHtml(topic.number)}</span>
         <span class="topic-name">${escapeHtml(topic.shortTitle || topic.title)}</span>
-        <span class="topic-learned" aria-hidden="true" hidden>✓</span>
       </button>
     `).join("");
   }
@@ -251,20 +248,6 @@
   }
 
   function updateLearning() {
-    progress.max = Math.max(1, topics.length);
-    progress.value = learned.size;
-    progressLabel.textContent = `Đã học ${learned.size}/${topics.length} chủ đề`;
-    nav.querySelectorAll("[role='tab']").forEach((tab) => {
-      const complete = learned.has(tab.dataset.topicId);
-      tab.querySelector(".topic-learned").hidden = !complete;
-      tab.setAttribute("aria-label", tab.querySelector(".topic-name").textContent + (complete ? " (đã học)" : ""));
-    });
-    const button = panel.querySelector("#mark-learned");
-    if (button) {
-      const complete = learned.has(activeTopicId);
-      button.setAttribute("aria-pressed", String(complete));
-      button.querySelector(".learned-state").textContent = complete ? "✓ Đã học" : "";
-    }
     const tab = nav.querySelector("[aria-selected='true']");
     if (tab) revealTab(tab);
   }
@@ -455,11 +438,6 @@
         <h3>Trọng tâm cần ghi nhớ</h3>
         <div class="key-list">${topic.keyPoints.map((item, index) => `<div class="key-item"><span>${index + 1}</span>${escapeHtml(item)}</div>`).join("")}</div>
       </section>
-      <div class="lesson-completion">
-        <button type="button" id="mark-learned" aria-pressed="false">Đánh dấu đã học <span class="learned-state" aria-hidden="true"></span></button>
-        <p>Tiến độ được lưu trên trình duyệt này.</p>
-      </div>
-      <p class="lesson-use-note">Bản dữ liệu mới: 90 trang. <a href="${escapeHtml(topic.document)}" target="_blank" rel="noopener">Mở tài liệu để đối chiếu hình và nội dung đầy đủ</a>. Chỉ phổ biến trong phạm vi được cho phép.</p>
     `;
     wireAudio(topic);
     panel.dispatchEvent(new CustomEvent("bmth:lesson-rendered", { detail: { topicId: topic.id } }));
@@ -520,13 +498,6 @@
   }
   tabsPrev.addEventListener("click", () => moveTabs(-1, tabsPrev));
   tabsNext.addEventListener("click", () => moveTabs(1, tabsNext));
-  panel.addEventListener("click", (event) => {
-    if (!event.target.closest("#mark-learned") || !activeTopicId) return;
-    if (learned.has(activeTopicId)) learned.delete(activeTopicId);
-    else learned.add(activeTopicId);
-    updateLearning();
-    if (!saveLearning()) showToast("Không lưu được tiến độ; trình duyệt có thể đã chặn bộ nhớ.");
-  });
 
   function toggleChat(force) {
     const shouldOpen = typeof force === "boolean" ? force : !chatPanel.classList.contains("open");

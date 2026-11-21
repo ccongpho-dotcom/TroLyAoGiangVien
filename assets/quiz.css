@@ -57,7 +57,7 @@ button { cursor: pointer; }
 .quiz-brand { display: inline-flex; align-items: center; gap: 11px; color: #fff; text-decoration: none; }
 .quiz-brand img { width: 48px; height: 48px; }
 .quiz-brand span { display: grid; line-height: 1.1; }
-.quiz-brand strong { letter-spacing: .12em; }
+.quiz-brand strong { letter-spacing: .025em; overflow-wrap: anywhere; }
 .quiz-brand small { margin-top: 5px; color: #a8c9db; font-size: .64rem; letter-spacing: .1em; }
 .back-link { padding: 9px 12px; border: 1px solid rgba(255,255,255,.16); border-radius: 10px; color: #dceaf2; text-decoration: none; font-size: .78rem; font-weight: 700; }
 .back-link:hover { color: #fff; border-color: rgba(70,217,205,.5); }
@@ -199,7 +199,7 @@ input:focus, select:focus, textarea:focus { border-color: #27a79e; box-shadow: 0
 }
 
 @media (max-width: 650px) {
-  .quiz-topbar { min-height: 66px; padding: 9px 13px; }
+  .quiz-topbar { min-height: 66px; padding: 9px 13px; flex-wrap: wrap; }
   .quiz-brand img { width: 42px; height: 42px; }
   .quiz-brand small { font-size: .52rem; }
   .back-link { padding: 8px; font-size: .68rem; }

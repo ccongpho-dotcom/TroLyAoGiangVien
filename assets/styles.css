@@ -67,7 +67,7 @@ a { color: inherit; }
 .brand { display: inline-flex; align-items: center; gap: 12px; text-decoration: none; width: fit-content; }
 .brand img { width: 58px; height: 58px; }
 .brand-copy { display: grid; line-height: 1.12; }
-.brand-copy strong { letter-spacing: .12em; font-size: 1.22rem; color: #fff; }
+.brand-copy strong { letter-spacing: .025em; font-size: 1.22rem; color: #fff; }
 .brand-copy small { margin-top: 5px; letter-spacing: .08em; color: #a9c6dc; font-size: .7rem; }
 .slogan { margin: 0; color: #f7d783; letter-spacing: .105em; text-align: center; font-size: clamp(.72rem, 1vw, .91rem); font-weight: 800; }
 .header-tools { justify-self: end; display: flex; align-items: center; gap: 9px; }
@@ -532,7 +532,7 @@ html.overview-mode .view-mode-toggle {
   html:not(.overview-mode) .brand { gap: 7px; width: 100%; }
   html:not(.overview-mode) .brand img { flex: 0 0 auto; width: 40px; height: 40px; }
   html:not(.overview-mode) .brand-copy { min-width: 0; }
-  html:not(.overview-mode) .brand-copy strong { font-size: .98rem; letter-spacing: .09em; white-space: nowrap; }
+  html:not(.overview-mode) .brand-copy strong { font-size: clamp(.88rem, 3.8vw, .98rem); letter-spacing: .01em; overflow-wrap: anywhere; }
   html:not(.overview-mode) .brand-copy small { display: block; margin-top: 4px; color: #bed0df; font-size: .57rem; line-height: 1.12; }
   html:not(.overview-mode) .site-header .slogan { padding-top: 8px; font-size: .63rem; line-height: 1.35; letter-spacing: .06em; }
   html:not(.overview-mode) .header-tools { gap: 5px; }

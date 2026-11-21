@@ -1,5 +1,5 @@
 window.BMTH_CONFIG = {
-  "siteName": "BMTH.K10",
+  "siteName": "TroLyGiangVien",
   "dataVersion": "BMTH-OPEN-90P-20261119",
   "chatApiUrl": "https://bmth-k10-chatbot.ccongpho.workers.dev/",
   "quizApiUrl": "https://bmth-k10-quiz.ccongpho.workers.dev",
