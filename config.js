@@ -2,7 +2,7 @@ window.BMTH_CONFIG = {
   "siteName": "BMTH.K10",
   "dataVersion": "BMTH-OPEN-90P-20261119",
   "chatApiUrl": "https://bmth-k10-chatbot.ccongpho.workers.dev/",
-  "quizApiUrl": "",
+  "quizApiUrl": "https://bmth-k10-quiz.ccongpho.workers.dev",
   "chatPaused": false,
-  "quizPaused": true
+  "quizPaused": false
 };
