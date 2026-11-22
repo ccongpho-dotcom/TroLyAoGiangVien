@@ -34,7 +34,11 @@
         else if (t[0].startsWith("<w:tab")) text += " ";
         else text += "\n";
       }
-      out.push({ text: text.normalize("NFC"), numbered });
+      const images = [];
+      const imgRe = /<a:blip\b[^>]*\br:embed="([^"]+)"|<v:imagedata\b[^>]*\br:id="([^"]+)"/g;
+      let im;
+      while ((im = imgRe.exec(p))) images.push(im[1] || im[2]);
+      out.push({ text: text.normalize("NFC"), numbered, images });
     }
     return out;
   }
@@ -42,6 +46,7 @@
   function parseParagraphs(paragraphs) {
     const questions = [];
     const errors = [];
+    const warnings = [];
     let cur = null;
 
     const finish = () => {
@@ -56,12 +61,14 @@
       if (cur.answer == null) problems.push("thiếu dòng “Đáp án: …”");
       else if (cur.answer >= cur.options.length) problems.push(`đáp án ${LETTERS[cur.answer]} không có trong các phương án`);
       if (problems.length) errors.push(`${label}: ${problems.join("; ")}.`);
-      questions.push({ no: cur.no, text: cur.text, options: cur.options, answer: cur.answer, ok: !problems.length });
+      if (cur.extraImages) warnings.push(`${label}: có ${cur.extraImages + 1} hình, chỉ dùng hình đầu tiên.`);
+      questions.push({ no: cur.no, text: cur.text, options: cur.options, answer: cur.answer, imageRef: cur.imageRef || null, ok: !problems.length });
       cur = null;
     };
 
     for (const para of paragraphs) {
       const lines = para.text.split("\n");
+      const imgs = para.images || [];
       for (let raw of lines) {
         const line = raw.replace(/ /g, " ").replace(/\s+/g, " ").trim();
         if (!line) continue;
@@ -87,10 +94,16 @@
         if (cur.options.length) cur.options[cur.options.length - 1] += " " + line;
         else cur.text += (cur.text ? "\n" : "") + line;
       }
+      if (cur && imgs.length) {
+        for (const rid of imgs) {
+          if (!cur.imageRef) cur.imageRef = rid;
+          else cur.extraImages = (cur.extraImages || 0) + 1;
+        }
+      }
     }
     finish();
     if (!questions.length) errors.push("Không tìm thấy câu hỏi nào. Mỗi câu phải bắt đầu bằng “Câu 1:”, “Câu 2:”…");
-    return { questions, errors };
+    return { questions, errors, warnings };
   }
 
   async function parseDocx(arrayBuffer, JSZipLib) {
@@ -100,7 +113,36 @@
     const file = zip.file("word/document.xml");
     if (!file) throw new Error("Tệp không phải văn bản Word (.docx) hợp lệ.");
     const xml = await file.async("string");
-    return parseParagraphs(paragraphsFromXml(xml));
+    const result = parseParagraphs(paragraphsFromXml(xml));
+    // Lấy tệp ảnh cho các câu có hình.
+    const relsFile = zip.file("word/_rels/document.xml.rels");
+    const rels = {};
+    if (relsFile) {
+      const relXml = await relsFile.async("string");
+      const relRe = /<Relationship\b[^>]*>/g;
+      let r;
+      while ((r = relRe.exec(relXml))) {
+        const id = /\bId="([^"]+)"/.exec(r[0]);
+        const target = /\bTarget="([^"]+)"/.exec(r[0]);
+        if (id && target) rels[id[1]] = target[1];
+      }
+    }
+    const MIME = { png: "image/png", jpg: "image/jpeg", jpeg: "image/jpeg", gif: "image/gif", webp: "image/webp", bmp: "image/bmp" };
+    for (const q of result.questions) {
+      if (!q.imageRef) continue;
+      const target = rels[q.imageRef];
+      delete q.imageRef;
+      if (!target || /^https?:/i.test(target)) { result.warnings.push(`Câu ${q.no}: hình là liên kết ngoài, đã bỏ qua.`); continue; }
+      const path = target.startsWith("/") ? target.slice(1) : "word/" + target.replace(/^\.\//, "");
+      const ext = (path.split(".").pop() || "").toLowerCase();
+      const mime = MIME[ext];
+      if (!mime) { result.warnings.push(`Câu ${q.no}: hình dạng .${ext} (thường là hình vẽ/biểu đồ của Word) không hiển thị được. Hãy chèn ảnh PNG hoặc JPG.`); continue; }
+      const f = zip.file(path);
+      if (!f) continue;
+      const data = await f.async("uint8array");
+      q.imageFile = new Blob([data], { type: mime });
+    }
+    return result;
   }
 
   const api = { parseDocx, parseParagraphs, paragraphsFromXml };

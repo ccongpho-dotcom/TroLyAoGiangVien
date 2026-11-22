@@ -7,7 +7,7 @@
   <meta name="robots" content="noindex">
   <title>Giáo viên · Kiểm tra theo lớp | TroLyAoGiangVien</title>
   <link rel="icon" type="image/svg+xml" href="assets/ai-digital-logo.svg">
-  <link rel="stylesheet" href="assets/kiemtra.css?v=20261121-kt1">
+  <link rel="stylesheet" href="assets/kiemtra.css?v=20261122-kt2">
 </head>
 <body>
   <header class="kt-topbar">
@@ -55,6 +55,7 @@
       <div class="kt-tabs" role="tablist" aria-label="Chức năng">
         <button class="kt-tab" role="tab" id="tab-exams" aria-controls="panel-exams" aria-selected="true" type="button">Đợt kiểm tra</button>
         <button class="kt-tab" role="tab" id="tab-sets" aria-controls="panel-sets" aria-selected="false" type="button">Bộ câu hỏi</button>
+        <button class="kt-tab" role="tab" id="tab-classes" aria-controls="panel-classes" aria-selected="false" type="button">Lớp học</button>
         <button class="kt-tab" role="tab" id="tab-accounts" aria-controls="panel-accounts" aria-selected="false" type="button" hidden>Tài khoản giáo viên</button>
       </div>
 
@@ -68,7 +69,9 @@
           <form id="exam-form" class="kt-card" style="margin-bottom:18px" hidden novalidate>
             <h3>Tạo đợt kiểm tra mới</h3>
             <p class="kt-lead">Mỗi đợt có một mã đề và mã QR riêng để học viên vào làm bài.</p>
-            <label class="kt-field"><span>Bộ câu hỏi</span><select name="setId" class="kt-select" required></select></label>
+            <div id="reopen-note" class="kt-alert" hidden></div>
+            <label class="kt-field" id="set-field"><span>Bộ câu hỏi</span><select name="setId" class="kt-select"></select></label>
+            <label class="kt-field"><span>Lớp (không bắt buộc)</span><select name="classId" class="kt-select"></select><small>Chọn lớp: học viên chọn tên mình trong danh sách, bảng điểm hiện cả người chưa làm. Không chọn: học viên tự gõ họ tên.</small></label>
             <label class="kt-field"><span>Tên đợt kiểm tra</span><input name="title" class="kt-input" maxlength="150" placeholder="Ví dụ: Kiểm tra 15 phút — Lớp CNTT 1"></label>
             <div class="kt-grid-2">
               <label class="kt-field"><span>Thời gian làm bài (phút)</span><input name="durationMin" type="number" class="kt-input" min="1" max="300" value="15" required></label>
@@ -109,6 +112,7 @@
                 <div class="kt-row">
                   <button id="btn-present" class="kt-btn kt-btn-primary" type="button">Chiếu lên lớp</button>
                   <button id="btn-copy-link" class="kt-btn kt-btn-ghost" type="button">Sao chép liên kết</button>
+                  <button id="btn-reopen" class="kt-btn kt-btn-ghost" type="button">Mở lại cho lớp khác</button>
                 </div>
               </div>
             </div>
@@ -159,27 +163,55 @@
 
       <!-- Bộ câu hỏi -->
       <div id="panel-sets" role="tabpanel" aria-labelledby="tab-sets" hidden>
-        <div class="kt-card" style="margin-bottom:18px">
-          <h2>Tải bộ câu hỏi từ Word</h2>
-          <p class="kt-lead">Soạn theo mẫu, lưu dạng .docx rồi chọn tệp. Hệ thống sẽ hiển thị trước để kiểm tra trước khi lưu.</p>
-          <div class="kt-row" style="margin-bottom:14px">
-            <a class="kt-btn kt-btn-ghost" href="assets/mau-bo-cau-hoi-kiem-tra.docx" download>Tải mẫu Word</a>
-            <label class="kt-btn kt-btn-primary" for="docx-input">Chọn tệp Word…</label>
-            <input id="docx-input" type="file" accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document" class="sr-only">
+        <div id="sets-home">
+          <div class="kt-card" style="margin-bottom:18px">
+            <h2>Thêm bộ câu hỏi</h2>
+            <p class="kt-lead">Tải tệp Word soạn theo mẫu, hoặc soạn trực tiếp trên trang. Sau khi tải lên vẫn sửa được từng câu và thêm hình.</p>
+            <div class="kt-row">
+              <a class="kt-btn kt-btn-ghost" href="assets/mau-bo-cau-hoi-kiem-tra.docx" download>Tải mẫu Word</a>
+              <label class="kt-btn kt-btn-primary" for="docx-input">Chọn tệp Word…</label>
+              <input id="docx-input" type="file" accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document" class="sr-only">
+              <button id="btn-new-set" class="kt-btn kt-btn-ghost" type="button">+ Soạn bộ mới trên web</button>
+            </div>
           </div>
-          <div id="set-preview-wrap" hidden>
-            <div id="set-errors" class="kt-alert error" hidden></div>
-            <label class="kt-field"><span>Tên bộ câu hỏi</span><input id="set-title" class="kt-input" maxlength="150"></label>
-            <p id="set-summary" class="kt-muted" style="margin:0"></p>
-            <div class="kt-preview"><ol id="set-preview"></ol></div>
-            <div class="kt-row" style="margin-top:14px">
-              <button id="btn-save-set" class="kt-btn kt-btn-primary" type="button">Lưu bộ câu hỏi</button>
-              <button id="btn-cancel-set" class="kt-btn kt-btn-ghost" type="button">Hủy</button>
+          <h2 style="color:var(--navy-800)">Bộ câu hỏi của tôi</h2>
+          <div id="set-list" class="kt-list"></div>
+        </div>
+
+        <div id="set-editor" hidden>
+          <div class="kt-card">
+            <p class="kt-eyebrow" id="ed-mode"></p>
+            <label class="kt-field"><span>Tên bộ câu hỏi</span><input id="ed-title" class="kt-input" maxlength="150"></label>
+            <div id="ed-issues" class="kt-alert error" hidden></div>
+            <div id="ed-warnings" class="kt-alert warn" hidden></div>
+            <p id="ed-note" class="kt-muted" style="margin:0;font-size:.88rem"></p>
+          </div>
+          <div id="ed-questions" class="kt-list" style="margin-top:14px"></div>
+          <button id="ed-add" class="kt-btn kt-btn-ghost kt-btn-block" type="button" style="margin-top:14px">+ Thêm câu hỏi</button>
+          <div class="kt-editor-bar">
+            <span id="ed-count" class="kt-muted"></span>
+            <div class="kt-row">
+              <button id="ed-cancel" class="kt-btn kt-btn-ghost" type="button">Hủy</button>
+              <button id="ed-save" class="kt-btn kt-btn-primary" type="button">Lưu bộ câu hỏi</button>
             </div>
           </div>
         </div>
-        <h2 style="color:var(--navy-800)">Bộ câu hỏi của tôi</h2>
-        <div id="set-list" class="kt-list"></div>
+      </div>
+
+      <!-- Lớp học -->
+      <div id="panel-classes" role="tabpanel" aria-labelledby="tab-classes" hidden>
+        <form id="class-form" class="kt-card" style="margin-bottom:18px" novalidate>
+          <h2 id="class-form-title">Thêm lớp</h2>
+          <p class="kt-lead">Dán cột họ tên từ Excel hoặc gõ mỗi dòng một học viên. Tên trùng nhau cần thêm thông tin phân biệt, ví dụ năm sinh.</p>
+          <label class="kt-field"><span>Tên lớp</span><input name="name" class="kt-input" maxlength="120" placeholder="Ví dụ: CNTT K10 — Lớp 1" required></label>
+          <label class="kt-field"><span>Danh sách học viên</span><textarea name="students" class="kt-textarea" rows="10" placeholder="Nguyễn Văn An&#10;Lê Thị Hoa&#10;Phạm Minh Đức"></textarea><small id="class-count">0 học viên</small></label>
+          <div class="kt-row">
+            <button class="kt-btn kt-btn-primary" type="submit">Lưu lớp</button>
+            <button id="class-cancel" class="kt-btn kt-btn-ghost" type="button" hidden>Hủy sửa</button>
+          </div>
+        </form>
+        <h2 style="color:var(--navy-800)">Lớp của tôi</h2>
+        <div id="class-list" class="kt-list"></div>
       </div>
 
       <!-- Tài khoản (quản trị) -->
@@ -221,10 +253,10 @@
     <button id="btn-close-present" class="kt-btn kt-btn-light" type="button">Đóng (Esc)</button>
   </div>
 
-  <script src="config.js?v=20261121-kt1"></script>
+  <script src="config.js?v=20261122-kt2"></script>
   <script src="assets/vendor/jszip.min.js"></script>
   <script src="assets/vendor/qrcode-generator.js"></script>
-  <script src="assets/kiemtra-docx.js?v=20261121-kt1"></script>
-  <script src="assets/giaovien.js?v=20261121-kt1"></script>
+  <script src="assets/kiemtra-docx.js?v=20261122-kt2"></script>
+  <script src="assets/giaovien.js?v=20261122-kt2"></script>
 </body>
 </html>

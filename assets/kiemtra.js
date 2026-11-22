@@ -23,7 +23,7 @@
     return id;
   }
 
-  const state = { code: "", info: null, token: "", name: "", questions: [], answers: {}, current: 0, deadline: 0, offset: 0, timer: null, saveTimer: null, dirty: false, submitting: false, inExam: false };
+  const state = { picked: "", code: "", info: null, token: "", name: "", questions: [], answers: {}, current: 0, deadline: 0, offset: 0, timer: null, saveTimer: null, dirty: false, submitting: false, inExam: false };
 
   function show(step) {
     steps.forEach((s) => { $(s).hidden = s !== step; });
@@ -96,9 +96,47 @@
     $("start-btn").disabled = info.state !== "open";
     $("info-rules").textContent = `Thời gian làm bài ${info.durationMin} phút, tính từ lúc bấm “Bắt đầu”. ` +
       (info.oneAttempt ? "Mỗi máy chỉ làm được một lần. " : "") + "Hết giờ, bài tự nộp.";
-    const saved = store.getItem("tlagv_kt_last_name");
-    if (saved && !$("name-input").value) $("name-input").value = saved;
+    const useRoster = Array.isArray(info.roster) && info.roster.length > 0;
+    $("roster-block").hidden = !useRoster;
+    $("name-field").hidden = useRoster;
+    if (useRoster) {
+      $("roster-class").textContent = info.className ? "— Lớp " + info.className : "";
+      if (state.picked && !info.roster.some((r) => r.name === state.picked && !r.taken)) state.picked = "";
+      renderRoster();
+    } else {
+      const saved = store.getItem("tlagv_kt_last_name");
+      if (saved && !$("name-input").value) $("name-input").value = saved;
+    }
     show("step-info");
+  }
+
+  const fold = (s) => String(s).normalize("NFD").replace(/\p{M}/gu, "").replace(/đ/gi, "d").toLowerCase();
+
+  function renderRoster() {
+    const wrap = $("roster");
+    const q = fold($("roster-search").value.trim());
+    wrap.textContent = "";
+    const items = state.info.roster.filter((r) => !q || fold(r.name).includes(q));
+    if (!items.length) {
+      const p = document.createElement("p");
+      p.className = "kt-muted";
+      p.textContent = "Không có tên phù hợp.";
+      wrap.appendChild(p);
+    }
+    for (const r of items) {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.setAttribute("role", "radio");
+      b.setAttribute("aria-checked", state.picked === r.name ? "true" : "false");
+      b.disabled = r.taken;
+      const n = document.createElement("span");
+      n.textContent = r.name;
+      b.appendChild(n);
+      if (r.taken) { const t = document.createElement("small"); t.textContent = "đã vào làm"; b.appendChild(t); }
+      b.addEventListener("click", () => { state.picked = r.name; renderRoster(); });
+      wrap.appendChild(b);
+    }
+    $("start-btn").textContent = state.picked ? "Bắt đầu làm bài — " + state.picked : "Bắt đầu làm bài";
   }
 
   async function begin(name) {
@@ -125,8 +163,12 @@
       store.setItem("tlagv_kt_last_name", data.name);
       startExam();
     } catch (err) {
-      if (err.code === "NO_ATTEMPT" || err.code === "NO_EXAM") store.removeItem(tokenKey());
+      if (err.code === "NO_ATTEMPT" || err.code === "NO_EXAM" || err.code === "NOT_IN_ROSTER" || err.code === "NAME_TAKEN") store.removeItem(tokenKey());
       alertBox(err.message);
+      if (err.code === "NAME_TAKEN" || err.code === "NOT_IN_ROSTER") {
+        state.picked = "";
+        try { state.info = await api("/api/exam/" + encodeURIComponent(state.code)); } catch (_) {}
+      }
       if (state.info) renderInfo(state.info); else show("step-code");
     } finally {
       $("start-btn").disabled = !state.info || state.info.state !== "open";
@@ -137,6 +179,8 @@
 
   function startExam() {
     state.inExam = true;
+    // Tải trước hình của các câu để chuyển câu không phải chờ.
+    state.questions.forEach((q) => { if (q.image) { const im = new Image(); im.src = API + "/api/img/" + encodeURIComponent(q.image); } });
     state.current = Math.min(state.current, state.questions.length - 1);
     show("step-exam");
     renderQuestion();
@@ -164,6 +208,14 @@
     const n = state.questions.length;
     $("q-number").textContent = `Câu ${state.current + 1}/${n}`;
     $("q-text").textContent = q.text;
+    const fig = $("q-figure");
+    if (q.image) {
+      const src = API + "/api/img/" + encodeURIComponent(q.image);
+      if ($("q-img").getAttribute("src") !== src) $("q-img").src = src;
+      $("q-img").alt = `Hình minh họa câu ${state.current + 1}`;
+      $("q-img-link").href = src;
+      fig.hidden = false;
+    } else { fig.hidden = true; $("q-img").removeAttribute("src"); }
     const wrap = $("q-options");
     wrap.textContent = "";
     q.options.forEach((opt, i) => {
@@ -318,8 +370,14 @@
   /* ---------- Sự kiện ---------- */
 
   $("code-form").addEventListener("submit", (e) => { e.preventDefault(); openCode($("code-input").value); });
+  $("roster-search").addEventListener("input", renderRoster);
   $("name-form").addEventListener("submit", (e) => {
     e.preventDefault();
+    if (state.info && Array.isArray(state.info.roster) && state.info.roster.length) {
+      if (!state.picked) { alertBox("Hãy chọn tên của mình trong danh sách."); $("roster-search").focus(); return; }
+      begin(state.picked);
+      return;
+    }
     const name = $("name-input").value.replace(/\s+/g, " ").trim();
     if (name.length < 4 || !name.includes(" ")) { alertBox("Vui lòng nhập đầy đủ họ và tên."); $("name-input").focus(); return; }
     begin(name);

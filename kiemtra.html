@@ -8,7 +8,7 @@
   <meta name="robots" content="noindex">
   <title>Kiểm tra theo lớp | TroLyAoGiangVien</title>
   <link rel="icon" type="image/svg+xml" href="assets/ai-digital-logo.svg">
-  <link rel="stylesheet" href="assets/kiemtra.css?v=20261121-kt1">
+  <link rel="stylesheet" href="assets/kiemtra.css?v=20261122-kt2">
 </head>
 <body>
   <header class="kt-topbar">
@@ -48,7 +48,13 @@
         </div>
         <div id="info-schedule" class="kt-alert warn" hidden></div>
         <form id="name-form" novalidate>
-          <label class="kt-field">
+          <div id="roster-block" class="kt-field" hidden>
+            <span>Chọn họ và tên của đồng chí <small id="roster-class" style="font-weight:600"></small></span>
+            <input id="roster-search" class="kt-input kt-roster-search" type="search" autocomplete="off" placeholder="Gõ vài chữ để tìm tên…" aria-label="Tìm tên trong danh sách lớp">
+            <div id="roster" class="kt-roster" role="radiogroup" aria-label="Danh sách lớp"></div>
+            <small>Không thấy tên mình? Báo giáo viên. Tên đã có người vào làm sẽ bị khóa.</small>
+          </div>
+          <label class="kt-field" id="name-field">
             <span>Họ và tên</span>
             <input id="name-input" class="kt-input" autocomplete="name" maxlength="80" placeholder="Ví dụ: Nguyễn Văn An" required>
             <small>Ghi đầy đủ họ và tên để giáo viên ghi điểm đúng người.</small>
@@ -68,6 +74,7 @@
         <div class="kt-card">
           <p id="q-number" class="kt-qnum"></p>
           <h2 id="q-text" class="kt-qtext" tabindex="-1"></h2>
+          <figure id="q-figure" class="kt-q-figure" hidden><img id="q-img" alt=""><a id="q-img-link" target="_blank" rel="noopener">Mở hình cỡ lớn</a></figure>
           <div id="q-options" class="kt-options" role="radiogroup" aria-labelledby="q-text"></div>
           <div class="kt-nav">
             <button id="prev-btn" class="kt-btn kt-btn-ghost" type="button">← Câu trước</button>
@@ -106,7 +113,7 @@
   </main>
   <footer class="kt-footer">TroLyAoGiangVien · Kiểm tra theo lớp</footer>
 
-  <script src="config.js?v=20261121-kt1"></script>
-  <script src="assets/kiemtra.js?v=20261121-kt1"></script>
+  <script src="config.js?v=20261122-kt2"></script>
+  <script src="assets/kiemtra.js?v=20261122-kt2"></script>
 </body>
 </html>

@@ -8,6 +8,9 @@ const MAX_QUESTIONS = 200;
 const MAX_TEXT = 2000;
 const MAX_OPTION = 600;
 const PBKDF2_ITERATIONS = 100000;
+const MAX_IMAGE_BYTES = 700 * 1024;
+const MAX_ROSTER = 300;
+const IMAGE_ID_RE = /^[A-Za-z0-9_-]{16,40}$/;
 
 let schemaReady = null;
 
@@ -23,6 +26,8 @@ export default {
       if (!env.DB) throw httpError(503, "Chưa cấu hình cơ sở dữ liệu.");
       await ensureSchema(env.DB);
       const url = new URL(request.url);
+      const img = url.pathname.match(/^\/api\/img\/([A-Za-z0-9_-]{16,40})$/);
+      if (img && request.method === "GET") return await serveImage(env.DB, img[1]);
       const res = await route(request, env, url);
       return json(res.body, res.status || 200, cors);
     } catch (err) {
@@ -64,10 +69,20 @@ async function route(request, env, url) {
     if (p === "/api/me" && m === "GET") return ok({ user: publicUser(user) });
     if (p === "/api/me/password" && m === "POST") return ok(await changePassword(request, db, user));
 
+    if (p === "/api/images" && m === "POST") return ok(await uploadImage(request, db, user));
+
+    if (p === "/api/classes" && m === "GET") return ok(await listClasses(db, user));
+    if (p === "/api/classes" && m === "POST") return ok(await saveClass(request, db, user, null));
+    if ((mt = p.match(/^\/api\/classes\/(\d+)$/))) {
+      if (m === "PUT") return ok(await saveClass(request, db, user, +mt[1]));
+      if (m === "DELETE") return ok(await deleteClass(db, user, +mt[1]));
+    }
+
     if (p === "/api/sets" && m === "GET") return ok(await listSets(db, user));
     if (p === "/api/sets" && m === "POST") return ok(await createSet(request, db, user));
     if ((mt = p.match(/^\/api\/sets\/(\d+)$/))) {
       if (m === "GET") return ok(await getSet(db, user, +mt[1]));
+      if (m === "PUT") return ok(await updateSet(request, db, user, +mt[1]));
       if (m === "DELETE") return ok(await deleteSet(db, user, +mt[1]));
     }
 
@@ -122,9 +137,23 @@ function ensureSchema(db) {
       db.prepare("CREATE INDEX IF NOT EXISTS attempts_device ON attempts(exam_id, device_id)"),
       db.prepare(`CREATE TABLE IF NOT EXISTS rate_limits (
         k TEXT PRIMARY KEY, count INTEGER NOT NULL, window_start INTEGER NOT NULL)`),
-    ]).catch((err) => { schemaReady = null; throw err; });
+      db.prepare(`CREATE TABLE IF NOT EXISTS classes (
+        id INTEGER PRIMARY KEY AUTOINCREMENT, owner_id INTEGER NOT NULL, name TEXT NOT NULL,
+        students TEXT NOT NULL, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL)`),
+      db.prepare("CREATE INDEX IF NOT EXISTS classes_owner ON classes(owner_id)"),
+      db.prepare(`CREATE TABLE IF NOT EXISTS images (
+        id TEXT PRIMARY KEY, owner_id INTEGER NOT NULL, mime TEXT NOT NULL, data BLOB NOT NULL, created_at INTEGER NOT NULL)`),
+    ]).then(() => migrate(db)).catch((err) => { schemaReady = null; throw err; });
   }
   return schemaReady;
+}
+
+async function migrate(db) {
+  // Thêm cột mới cho cơ sở dữ liệu đã tạo từ phiên bản trước.
+  const cols = await db.prepare("PRAGMA table_info(exams)").all();
+  const have = new Set(cols.results.map((c) => c.name));
+  if (!have.has("roster")) await db.prepare("ALTER TABLE exams ADD COLUMN roster TEXT").run();
+  if (!have.has("class_name")) await db.prepare("ALTER TABLE exams ADD COLUMN class_name TEXT").run();
 }
 
 /* ----------------------------- Accounts ----------------------------- */
@@ -242,7 +271,9 @@ function validateQuestions(list) {
     if (!text) throw httpError(400, `Câu ${i + 1}: thiếu nội dung câu hỏi.`);
     if (options.length < 2 || options.length > 6 || options.some((o) => !o)) throw httpError(400, `Câu ${i + 1}: cần từ 2 đến 6 phương án, không để trống.`);
     if (!Number.isInteger(answer) || answer < 0 || answer >= options.length) throw httpError(400, `Câu ${i + 1}: đáp án đúng không hợp lệ.`);
-    return { text, options, answer };
+    const image = q && q.image ? String(q.image) : "";
+    if (image && !IMAGE_ID_RE.test(image)) throw httpError(400, `Câu ${i + 1}: hình ảnh không hợp lệ.`);
+    return image ? { text, options, answer, image } : { text, options, answer };
   });
 }
 
@@ -256,6 +287,7 @@ async function createSet(request, db, user) {
   const title = cleanText(body.title, 150);
   if (!title) throw httpError(400, "Nhập tên bộ câu hỏi.");
   const questions = validateQuestions(body.questions);
+  await checkImagesOwned(db, user, questions);
   const r = await db.prepare("INSERT INTO qsets (owner_id, title, questions, qcount, created_at) VALUES (?,?,?,?,?)")
     .bind(user.id, title, JSON.stringify(questions), questions.length, Date.now()).run();
   return { id: r.meta.last_row_id, count: questions.length };
@@ -265,6 +297,97 @@ async function getSet(db, user, id) {
   const row = await db.prepare("SELECT * FROM qsets WHERE id=? AND owner_id=?").bind(id, user.id).first();
   if (!row) throw httpError(404, "Không tìm thấy bộ câu hỏi.");
   return { id: row.id, title: row.title, createdAt: row.created_at, questions: JSON.parse(row.questions) };
+}
+
+async function updateSet(request, db, user, id) {
+  const body = await readJson(request, 1_500_000);
+  const title = cleanText(body.title, 150);
+  if (!title) throw httpError(400, "Nhập tên bộ câu hỏi.");
+  const questions = validateQuestions(body.questions);
+  const own = await db.prepare("SELECT 1 FROM qsets WHERE id=? AND owner_id=?").bind(id, user.id).first();
+  if (!own) throw httpError(404, "Không tìm thấy bộ câu hỏi.");
+  await checkImagesOwned(db, user, questions);
+  const r = await db.prepare("UPDATE qsets SET title=?, questions=?, qcount=? WHERE id=? AND owner_id=?")
+    .bind(title, JSON.stringify(questions), questions.length, id, user.id).run();
+  if (!r.meta.changes) throw httpError(404, "Không tìm thấy bộ câu hỏi.");
+  return { id, count: questions.length };
+}
+
+async function checkImagesOwned(db, user, questions) {
+  const ids = [...new Set(questions.map((q) => q.image).filter(Boolean))];
+  for (let i = 0; i < ids.length; i += 90) {
+    const chunk = ids.slice(i, i + 90);
+    const rows = await db.prepare(`SELECT id FROM images WHERE owner_id=? AND id IN (${chunk.map(() => "?").join(",")})`).bind(user.id, ...chunk).all();
+    const found = new Set(rows.results.map((r) => r.id));
+    const missing = chunk.find((x) => !found.has(x));
+    if (missing) throw httpError(400, "Có hình ảnh chưa tải lên xong. Vui lòng lưu lại.");
+  }
+}
+
+/* ----------------------------- Images ----------------------------- */
+
+async function uploadImage(request, db, user) {
+  const mime = String(request.headers.get("Content-Type") || "").split(";")[0].trim().toLowerCase();
+  if (!["image/jpeg", "image/png", "image/webp", "image/gif"].includes(mime)) throw httpError(415, "Chỉ nhận ảnh JPG, PNG, WEBP hoặc GIF.");
+  const len = Number(request.headers.get("Content-Length") || 0);
+  if (len > MAX_IMAGE_BYTES) throw httpError(413, "Ảnh quá lớn.");
+  const buf = await request.arrayBuffer();
+  if (!buf.byteLength || buf.byteLength > MAX_IMAGE_BYTES) throw httpError(413, "Ảnh quá lớn hoặc trống.");
+  const id = randomToken(16);
+  await db.prepare("INSERT INTO images (id, owner_id, mime, data, created_at) VALUES (?,?,?,?,?)").bind(id, user.id, mime, buf, Date.now()).run();
+  return { id };
+}
+
+async function serveImage(db, id) {
+  const row = await db.prepare("SELECT mime, data FROM images WHERE id=?").bind(id).first();
+  if (!row) return new Response("Không tìm thấy ảnh", { status: 404, headers: { "Content-Type": "text/plain; charset=utf-8" } });
+  const bytes = row.data instanceof ArrayBuffer ? new Uint8Array(row.data) : new Uint8Array(row.data);
+  return new Response(bytes, { status: 200, headers: {
+    "Content-Type": row.mime, "Cache-Control": "public, max-age=31536000, immutable",
+    "Access-Control-Allow-Origin": "*", "X-Content-Type-Options": "nosniff",
+  } });
+}
+
+/* ----------------------------- Classes ----------------------------- */
+
+function cleanRoster(list) {
+  if (!Array.isArray(list)) throw httpError(400, "Danh sách học viên không hợp lệ.");
+  const names = list.map((n) => cleanText(n, 80)).filter(Boolean);
+  if (!names.length) throw httpError(400, "Danh sách lớp chưa có học viên nào.");
+  if (names.length > MAX_ROSTER) throw httpError(400, `Mỗi lớp tối đa ${MAX_ROSTER} học viên.`);
+  const seen = new Map();
+  const dups = new Set();
+  for (const n of names) { const k = nameKey(n); if (seen.has(k)) dups.add(n); seen.set(k, n); }
+  if (dups.size) throw httpError(400, `Trùng tên: ${[...dups].slice(0, 8).join(", ")}. Hãy thêm thông tin phân biệt, ví dụ “Nguyễn Văn An (2004)”.`);
+  return names;
+}
+
+async function listClasses(db, user) {
+  const rows = await db.prepare("SELECT id, name, students, updated_at FROM classes WHERE owner_id=? ORDER BY name COLLATE NOCASE").bind(user.id).all();
+  return { classes: rows.results.map((c) => ({ id: c.id, name: c.name, students: JSON.parse(c.students), updatedAt: c.updated_at })) };
+}
+
+async function saveClass(request, db, user, id) {
+  const body = await readJson(request, 200_000);
+  const name = cleanText(body.name, 120);
+  if (!name) throw httpError(400, "Nhập tên lớp.");
+  const students = cleanRoster(body.students);
+  const now = Date.now();
+  if (id == null) {
+    const r = await db.prepare("INSERT INTO classes (owner_id, name, students, created_at, updated_at) VALUES (?,?,?,?,?)")
+      .bind(user.id, name, JSON.stringify(students), now, now).run();
+    return { id: r.meta.last_row_id, count: students.length };
+  }
+  const r = await db.prepare("UPDATE classes SET name=?, students=?, updated_at=? WHERE id=? AND owner_id=?")
+    .bind(name, JSON.stringify(students), now, id, user.id).run();
+  if (!r.meta.changes) throw httpError(404, "Không tìm thấy lớp.");
+  return { id, count: students.length };
+}
+
+async function deleteClass(db, user, id) {
+  const r = await db.prepare("DELETE FROM classes WHERE id=? AND owner_id=?").bind(id, user.id).run();
+  if (!r.meta.changes) throw httpError(404, "Không tìm thấy lớp.");
+  return { deleted: true };
 }
 
 async function deleteSet(db, user, id) {
@@ -293,8 +416,23 @@ async function newExamCode(db) {
 
 async function createExam(request, db, user) {
   const body = await readJson(request);
-  const set = await db.prepare("SELECT * FROM qsets WHERE id=? AND owner_id=?").bind(Number(body.setId), user.id).first();
-  if (!set) throw httpError(404, "Không tìm thấy bộ câu hỏi.");
+  let source;
+  if (body.sourceExamId) {
+    const ex = await db.prepare("SELECT * FROM exams WHERE id=? AND owner_id=?").bind(Number(body.sourceExamId), user.id).first();
+    if (!ex) throw httpError(404, "Không tìm thấy đợt kiểm tra gốc.");
+    source = { id: ex.set_id, title: ex.title, questions: ex.questions };
+  } else {
+    source = await db.prepare("SELECT * FROM qsets WHERE id=? AND owner_id=?").bind(Number(body.setId), user.id).first();
+    if (!source) throw httpError(404, "Không tìm thấy bộ câu hỏi.");
+  }
+  const set = source;
+  let roster = null, className = null;
+  if (body.classId) {
+    const cls = await db.prepare("SELECT * FROM classes WHERE id=? AND owner_id=?").bind(Number(body.classId), user.id).first();
+    if (!cls) throw httpError(404, "Không tìm thấy lớp.");
+    roster = cls.students;
+    className = cls.name;
+  }
   const title = cleanText(body.title, 150) || set.title;
   const duration = intIn(body.durationMin, 1, 300);
   if (!duration) throw httpError(400, "Thời gian làm bài từ 1 đến 300 phút.");
@@ -306,15 +444,15 @@ async function createExam(request, db, user) {
   let questions = JSON.parse(set.questions);
   const pick = intIn(body.questionCount, 1, questions.length);
   const code = await newExamCode(db);
-  const r = await db.prepare(`INSERT INTO exams (code, owner_id, set_id, title, questions, qcount, duration_min, shuffle, one_attempt, show_score, opens_at, closes_at, created_at)
-      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)`)
-    .bind(code, user.id, set.id, title, JSON.stringify(questions), pick || questions.length, duration,
-      body.shuffle ? 1 : 0, body.oneAttempt === false ? 0 : 1, body.showScore ? 1 : 0, opensAt, closesAt, now).run();
+  const r = await db.prepare(`INSERT INTO exams (code, owner_id, set_id, title, questions, qcount, duration_min, shuffle, one_attempt, show_score, opens_at, closes_at, created_at, roster, class_name)
+      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`)
+    .bind(code, user.id, set.id ?? null, title, JSON.stringify(questions), pick || questions.length, duration,
+      body.shuffle ? 1 : 0, body.oneAttempt === false ? 0 : 1, body.showScore ? 1 : 0, opensAt, closesAt, now, roster, className).run();
   return { id: r.meta.last_row_id, code };
 }
 
 async function listExams(db, user) {
-  const rows = await db.prepare(`SELECT e.id, e.code, e.title, e.qcount, e.duration_min, e.opens_at, e.closes_at, e.show_score, e.created_at,
+  const rows = await db.prepare(`SELECT e.id, e.code, e.title, e.qcount, e.duration_min, e.opens_at, e.closes_at, e.show_score, e.created_at, e.class_name,
       (SELECT COUNT(*) FROM attempts a WHERE a.exam_id=e.id) AS started,
       (SELECT COUNT(*) FROM attempts a WHERE a.exam_id=e.id AND a.submitted_at IS NOT NULL) AS submitted
     FROM exams e WHERE e.owner_id=? ORDER BY e.created_at DESC`).bind(user.id).all();
@@ -322,7 +460,7 @@ async function listExams(db, user) {
   return { exams: rows.results.map((e) => ({
     id: e.id, code: e.code, title: e.title, count: e.qcount, durationMin: e.duration_min, opensAt: e.opens_at,
     closesAt: e.closes_at, showScore: e.show_score === 1, createdAt: e.created_at, state: examState(e, now),
-    started: e.started, submitted: e.submitted,
+    started: e.started, submitted: e.submitted, className: e.class_name || null,
   })) };
 }
 
@@ -356,7 +494,9 @@ async function examDetail(db, user, id) {
       id: exam.id, code: exam.code, title: exam.title, count: exam.qcount, totalInSet: questions.length,
       durationMin: exam.duration_min, shuffle: exam.shuffle === 1, oneAttempt: exam.one_attempt === 1,
       showScore: exam.show_score === 1, opensAt: exam.opens_at, closesAt: exam.closes_at, state: examState(exam, now),
+      className: exam.class_name || null, rosterSize: exam.roster ? JSON.parse(exam.roster).length : 0,
     },
+    absent: exam.roster ? JSON.parse(exam.roster).filter((n) => !rows.results.some((a) => nameKey(a.student_name) === nameKey(n))) : [],
     attempts: rows.results.map((a) => ({
       id: a.id, name: a.student_name, startedAt: a.started_at, submittedAt: a.submitted_at, deadline: a.deadline,
       score: a.score, total: a.total, finishReason: a.finish_reason,
@@ -408,7 +548,14 @@ async function examByCode(db, code) {
 
 async function examInfo(db, code) {
   const exam = await examByCode(db, code);
+  let roster = null;
+  if (exam.roster) {
+    const taken = await db.prepare("SELECT student_name FROM attempts WHERE exam_id=?").bind(exam.id).all();
+    const keys = new Set(taken.results.map((r) => nameKey(r.student_name)));
+    roster = JSON.parse(exam.roster).map((n) => ({ name: n, taken: keys.has(nameKey(n)) }));
+  }
   return {
+    roster, className: exam.class_name || null,
     code: exam.code, title: exam.title, teacher: exam.teacher, count: exam.qcount, durationMin: exam.duration_min,
     opensAt: exam.opens_at, closesAt: exam.closes_at, state: examState(exam), oneAttempt: exam.one_attempt === 1,
     serverNow: Date.now(),
@@ -430,7 +577,7 @@ function buildLayout(exam, questions) {
 
 function studentQuestions(questions, layout) {
   return layout.map((item, i) => ({
-    id: item.q, number: i + 1, text: questions[item.q].text,
+    id: item.q, number: i + 1, text: questions[item.q].text, image: questions[item.q].image || null,
     options: item.o.map((oi) => ({ id: oi, text: questions[item.q].options[oi] })),
   }));
 }
@@ -505,8 +652,15 @@ async function startAttempt(request, env, code) {
   const state = examState(exam, now);
   if (state === "upcoming") throw httpError(403, "Đợt kiểm tra chưa mở.", "NOT_OPEN");
   if (state === "closed") throw httpError(403, "Đợt kiểm tra đã đóng.", "CLOSED");
-  const name = cleanText(body.name, 80);
-  if (!name || name.length < 4 || !/\s/.test(name)) throw httpError(400, "Vui lòng nhập đầy đủ họ và tên.");
+  let name = cleanText(body.name, 80);
+  if (exam.roster) {
+    const match = JSON.parse(exam.roster).find((n) => nameKey(n) === nameKey(name));
+    if (!match) throw httpError(400, "Hãy chọn đúng tên của mình trong danh sách lớp.", "NOT_IN_ROSTER");
+    name = match;
+    const clash = (await db.prepare("SELECT student_name, device_id FROM attempts WHERE exam_id=?").bind(exam.id).all())
+      .results.find((a) => nameKey(a.student_name) === nameKey(name) && a.device_id !== deviceId);
+    if (clash) throw httpError(409, "Tên này đã có người vào làm bài trên máy khác. Nếu đúng là đồng chí, hãy báo giáo viên.", "NAME_TAKEN");
+  } else if (!name || name.length < 4 || !/\s/.test(name)) throw httpError(400, "Vui lòng nhập đầy đủ họ và tên.");
 
   const ipKey = await ipKeyOf(request, env, "start");
   await rateLimit(db, ipKey, 400, 10 * 60 * 1000, "Có quá nhiều lượt vào thi từ cùng một mạng. Vui lòng thử lại sau ít phút.");

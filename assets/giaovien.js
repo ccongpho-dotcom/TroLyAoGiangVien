@@ -149,23 +149,27 @@
     views("view-app");
     selectTab("exams");
     loadSets();
+    loadClasses();
   }
 
   /* ---------- Thẻ chức năng ---------- */
 
   function selectTab(name) {
-    ["exams", "sets", "accounts"].forEach((t) => {
+    ["exams", "sets", "classes", "accounts"].forEach((t) => {
       $("tab-" + t).setAttribute("aria-selected", t === name ? "true" : "false");
       $("panel-" + t).hidden = t !== name;
     });
     clearInterval(state.refreshTimer);
     if (name === "exams") { showExamHome(); loadExams(); }
-    if (name === "sets") loadSets();
+    if (name === "sets") { if ($("set-editor").hidden) loadSets(); }
+    if (name === "classes") loadClasses();
     if (name === "accounts") loadTeachers();
   }
-  ["exams", "sets", "accounts"].forEach((t) => $("tab-" + t).addEventListener("click", () => selectTab(t)));
+  ["exams", "sets", "classes", "accounts"].forEach((t) => $("tab-" + t).addEventListener("click", () => selectTab(t)));
 
   /* ---------- Bộ câu hỏi ---------- */
+
+  const editor = { id: null, questions: [], dirty: false };
 
   async function loadSets() {
     try {
@@ -179,26 +183,15 @@
   function renderSets() {
     const list = $("set-list");
     list.textContent = "";
-    if (!state.sets.length) { list.append(el("div", { class: "kt-empty", text: "Chưa có bộ câu hỏi nào. Tải tệp Word theo mẫu để bắt đầu." })); return; }
+    if (!state.sets.length) { list.append(el("div", { class: "kt-empty", text: "Chưa có bộ câu hỏi nào. Tải tệp Word theo mẫu hoặc soạn trên web để bắt đầu." })); return; }
     for (const s of state.sets) {
-      const detail = el("div", { hidden: true });
       list.append(el("div", { class: "kt-item" },
-        el("div", {}, el("h3", { text: s.title }), el("p", { text: `${s.count} câu · Tạo lúc ${fmt(s.createdAt)}` }), detail),
+        el("div", {}, el("h3", { text: s.title }), el("p", { text: `${s.count} câu · Tạo lúc ${fmt(s.createdAt)}` })),
         el("div", { class: "kt-row" },
-          el("button", { class: "kt-btn kt-btn-ghost kt-btn-sm", type: "button", onclick: () => toggleSetView(s.id, detail) }, "Xem"),
+          el("button", { class: "kt-btn kt-btn-ghost kt-btn-sm", type: "button", onclick: () => editSet(s.id) }, "Xem / Sửa"),
           el("button", { class: "kt-btn kt-btn-primary kt-btn-sm", type: "button", onclick: () => { selectTab("exams"); openExamForm(s.id); } }, "Tạo đợt kiểm tra"),
           el("button", { class: "kt-btn kt-btn-danger kt-btn-sm", type: "button", onclick: () => deleteSet(s) }, "Xóa"))));
     }
-  }
-
-  async function toggleSetView(id, holder) {
-    if (!holder.hidden) { holder.hidden = true; return; }
-    try {
-      const set = await api("GET", "/api/sets/" + id);
-      holder.textContent = "";
-      holder.append(el("div", { class: "kt-preview" }, previewList(set.questions)));
-      holder.hidden = false;
-    } catch (err) { notify(err.message, "error"); }
   }
 
   async function deleteSet(s) {
@@ -207,53 +200,316 @@
     catch (err) { notify(err.message, "error"); }
   }
 
-  function previewList(questions) {
-    return el("ol", {}, questions.map((q, i) => el("li", { class: q.ok === false ? "bad" : "" },
-      el("div", { class: "q", text: `Câu ${q.no || i + 1}. ${q.text || "(trống)"}` }),
-      el("ul", { class: "opts" }, q.options.map((o, j) => el("li", { class: j === q.answer ? "right" : "", text: `${LETTERS[j]}. ${o}${j === q.answer ? "  ✓" : ""}` }))))));
+  const imageUrl = (id) => `${API}/api/img/${encodeURIComponent(id)}`;
+
+  function openEditor({ id = null, title = "", questions = [], mode = "", issues = [], warnings = [] }) {
+    editor.id = id;
+    editor.questions = questions.map((q) => ({
+      text: q.text || "", options: q.options && q.options.length ? [...q.options] : ["", ""],
+      answer: Number.isInteger(q.answer) ? q.answer : null, image: q.image || null,
+      local: q.imageFile ? { blob: q.imageFile, url: URL.createObjectURL(q.imageFile) } : null,
+    }));
+    if (!editor.questions.length) editor.questions.push(blankQuestion());
+    editor.dirty = false;
+    $("ed-mode").textContent = mode;
+    $("ed-title").value = title;
+    $("ed-note").textContent = id ? "Sửa bộ câu hỏi không làm thay đổi các đợt kiểm tra đã tạo trước đó." : "";
+    const iss = $("ed-issues");
+    iss.textContent = "";
+    if (issues.length) {
+      iss.append(el("strong", { text: `Tệp Word có ${issues.length} lỗi. Có thể sửa ngay bên dưới (câu lỗi được tô đỏ) rồi lưu:` }), el("ul", {}, issues.slice(0, 30).map((m) => el("li", { text: m }))));
+      iss.hidden = false;
+    } else iss.hidden = true;
+    const warn = $("ed-warnings");
+    warn.textContent = "";
+    if (warnings.length) { warn.append(el("ul", { style: "margin:0" }, warnings.slice(0, 30).map((m) => el("li", { text: m })))); warn.hidden = false; }
+    else warn.hidden = true;
+    $("sets-home").hidden = true;
+    $("set-editor").hidden = false;
+    renderEditor();
+    window.scrollTo({ top: 0 });
   }
+
+  function closeEditor() {
+    editor.questions.forEach((q) => q.local && URL.revokeObjectURL(q.local.url));
+    editor.questions = [];
+    $("set-editor").hidden = true;
+    $("sets-home").hidden = false;
+  }
+
+  function blankQuestion() { return { text: "", options: ["", "", "", ""], answer: null, image: null, local: null }; }
+
+  function questionProblems(q) {
+    const p = [];
+    if (!q.text.trim()) p.push("thiếu nội dung");
+    const filled = q.options.filter((o) => o.trim()).length;
+    if (q.options.length < 2) p.push("cần ít nhất 2 phương án");
+    else if (filled < q.options.length) p.push("có phương án để trống");
+    if (q.answer == null || q.answer >= q.options.length) p.push("chưa chọn đáp án đúng");
+    return p;
+  }
+
+  function renderEditor() {
+    const wrap = $("ed-questions");
+    wrap.textContent = "";
+    editor.questions.forEach((q, qi) => wrap.append(questionCard(q, qi)));
+    updateEditorCount();
+  }
+
+  function updateEditorCount() {
+    const bad = editor.questions.filter((q) => questionProblems(q).length).length;
+    $("ed-count").textContent = `${editor.questions.length} câu` + (bad ? ` · ${bad} câu chưa hoàn chỉnh` : "");
+  }
+
+  function markDirty() { editor.dirty = true; updateEditorCount(); }
+
+  function questionCard(q, qi) {
+    const problems = questionProblems(q);
+    const card = el("div", { class: "kt-card kt-qedit" + (problems.length ? " bad" : "") });
+    const status = el("span", { class: "kt-muted", style: "font-size:.84rem", text: problems.length ? "⚠ " + problems.join(", ") : "" });
+    const refreshStatus = () => {
+      const pr = questionProblems(q);
+      card.classList.toggle("bad", pr.length > 0);
+      status.textContent = pr.length ? "⚠ " + pr.join(", ") : "";
+      markDirty();
+    };
+    const move = (d) => { const j = qi + d; if (j < 0 || j >= editor.questions.length) return; [editor.questions[qi], editor.questions[j]] = [editor.questions[j], editor.questions[qi]]; markDirty(); renderEditor(); };
+
+    card.append(el("div", { class: "kt-row kt-between", style: "margin-bottom:10px" },
+      el("div", {}, el("strong", { style: "color:var(--navy-800)", text: `Câu ${qi + 1}` }), " ", status),
+      el("div", { class: "kt-row" },
+        el("button", { class: "kt-btn kt-btn-ghost kt-btn-sm", type: "button", title: "Lên", "aria-label": `Đưa câu ${qi + 1} lên`, disabled: qi === 0, onclick: () => move(-1) }, "↑"),
+        el("button", { class: "kt-btn kt-btn-ghost kt-btn-sm", type: "button", title: "Xuống", "aria-label": `Đưa câu ${qi + 1} xuống`, disabled: qi === editor.questions.length - 1, onclick: () => move(1) }, "↓"),
+        el("button", { class: "kt-btn kt-btn-danger kt-btn-sm", type: "button", onclick: () => { if (q.text.trim() && !confirm(`Xóa câu ${qi + 1}?`)) return; editor.questions.splice(qi, 1); if (!editor.questions.length) editor.questions.push(blankQuestion()); markDirty(); renderEditor(); } }, "Xóa câu"))));
+
+    const ta = el("textarea", { class: "kt-textarea", rows: 2, "aria-label": `Nội dung câu ${qi + 1}`, placeholder: "Nội dung câu hỏi" });
+    ta.value = q.text;
+    ta.addEventListener("input", () => { q.text = ta.value; refreshStatus(); });
+    card.append(ta);
+
+    // Hình ảnh
+    const imgBox = el("div", { class: "kt-qimage-edit" });
+    const fileIn = el("input", { type: "file", accept: "image/png,image/jpeg,image/webp,image/gif", class: "sr-only" });
+    fileIn.addEventListener("change", () => {
+      const f = fileIn.files[0];
+      fileIn.value = "";
+      if (!f) return;
+      if (!/^image\/(png|jpeg|webp|gif)$/.test(f.type)) { notify("Chỉ dùng ảnh PNG, JPG, WEBP hoặc GIF.", "error"); return; }
+      if (f.size > 15 * 1024 * 1024) { notify("Ảnh quá lớn (tối đa 15 MB trước khi nén).", "error"); return; }
+      if (q.local) URL.revokeObjectURL(q.local.url);
+      q.local = { blob: f, url: URL.createObjectURL(f) };
+      q.image = null;
+      markDirty();
+      renderEditor();
+    });
+    const src = q.local ? q.local.url : q.image ? imageUrl(q.image) : null;
+    if (src) {
+      imgBox.append(el("img", { src, alt: `Hình câu ${qi + 1}`, class: "kt-qimage" }),
+        el("div", { class: "kt-row" },
+          el("button", { class: "kt-btn kt-btn-ghost kt-btn-sm", type: "button", onclick: () => fileIn.click() }, "Đổi hình"),
+          el("button", { class: "kt-btn kt-btn-danger kt-btn-sm", type: "button", onclick: () => { if (q.local) URL.revokeObjectURL(q.local.url); q.local = null; q.image = null; markDirty(); renderEditor(); } }, "Bỏ hình")));
+    } else {
+      imgBox.append(el("button", { class: "kt-btn kt-btn-ghost kt-btn-sm", type: "button", onclick: () => fileIn.click() }, "+ Thêm hình"));
+    }
+    imgBox.append(fileIn);
+    card.append(imgBox);
+
+    // Phương án
+    const opts = el("div", { class: "kt-optedit-list", role: "radiogroup", "aria-label": `Phương án câu ${qi + 1}` });
+    q.options.forEach((o, oi) => {
+      const radio = el("input", { type: "radio", name: `ans-${qi}`, "aria-label": `Đáp án đúng là ${LETTERS[oi]}`, title: "Đánh dấu là đáp án đúng" });
+      radio.checked = q.answer === oi;
+      radio.addEventListener("change", () => { q.answer = oi; refreshStatus(); });
+      const input = el("input", { class: "kt-input", value: o, placeholder: `Phương án ${LETTERS[oi]}`, "aria-label": `Phương án ${LETTERS[oi]} câu ${qi + 1}` });
+      input.addEventListener("input", () => { q.options[oi] = input.value; refreshStatus(); });
+      opts.append(el("div", { class: "kt-optedit" + (q.answer === oi ? " right" : "") },
+        el("label", { class: "kt-optedit-key" }, radio, el("span", { text: LETTERS[oi] })),
+        input,
+        el("button", { class: "kt-btn kt-btn-ghost kt-btn-sm", type: "button", "aria-label": `Xóa phương án ${LETTERS[oi]}`, disabled: q.options.length <= 2,
+          onclick: () => { q.options.splice(oi, 1); if (q.answer === oi) q.answer = null; else if (q.answer > oi) q.answer--; markDirty(); renderEditor(); } }, "×")));
+    });
+    card.append(el("p", { class: "kt-muted", style: "margin:12px 0 6px;font-size:.84rem", text: "Bấm vào chữ cái để chọn đáp án đúng." }), opts);
+    if (q.options.length < 6) card.append(el("button", { class: "kt-btn kt-btn-ghost kt-btn-sm", type: "button", style: "margin-top:8px", onclick: () => { q.options.push(""); markDirty(); renderEditor(); } }, "+ Thêm phương án"));
+    return card;
+  }
+
+  // Nén ảnh trước khi tải lên: tối đa 1400px, JPEG.
+  async function compressImage(blob) {
+    const url = URL.createObjectURL(blob);
+    try {
+      const img = await new Promise((resolve, reject) => { const i = new Image(); i.onload = () => resolve(i); i.onerror = () => reject(new Error("Không đọc được ảnh.")); i.src = url; });
+      let scale = Math.min(1, 1400 / Math.max(img.naturalWidth, img.naturalHeight));
+      for (let attempt = 0; attempt < 5; attempt++) {
+        const w = Math.max(1, Math.round(img.naturalWidth * scale)), h = Math.max(1, Math.round(img.naturalHeight * scale));
+        const c = document.createElement("canvas");
+        c.width = w; c.height = h;
+        const ctx = c.getContext("2d");
+        ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, w, h);
+        ctx.drawImage(img, 0, 0, w, h);
+        const out = await new Promise((r) => c.toBlob(r, "image/jpeg", attempt < 2 ? 0.85 : 0.72));
+        if (out && out.size <= 650 * 1024) return out;
+        scale *= 0.75;
+      }
+      throw new Error("Ảnh quá lớn, không nén được.");
+    } finally { URL.revokeObjectURL(url); }
+  }
+
+  async function uploadImage(blob) {
+    const small = await compressImage(blob);
+    const headers = { "Content-Type": "image/jpeg", Authorization: "Bearer " + session.getItem(TOKEN_KEY) };
+    const res = await fetch(API + "/api/images", { method: "POST", headers, body: small });
+    let data = {};
+    try { data = await res.json(); } catch (_) {}
+    if (!res.ok) throw new Error(data.error || "Không tải được ảnh lên.");
+    return data.id;
+  }
+
+  async function saveEditor() {
+    const title = $("ed-title").value.trim();
+    if (!title) { notify("Nhập tên bộ câu hỏi.", "error"); $("ed-title").focus(); return; }
+    const bad = editor.questions.findIndex((q) => questionProblems(q).length);
+    if (bad >= 0) {
+      notify(`Câu ${bad + 1} chưa hoàn chỉnh: ${questionProblems(editor.questions[bad]).join(", ")}.`, "error");
+      $("ed-questions").children[bad]?.scrollIntoView({ block: "center", behavior: "smooth" });
+      return;
+    }
+    const btn = $("ed-save");
+    btn.disabled = true;
+    try {
+      const pending = editor.questions.filter((q) => q.local);
+      let done = 0;
+      for (const q of pending) {
+        btn.textContent = `Đang tải hình ${++done}/${pending.length}…`;
+        q.image = await uploadImage(q.local.blob);
+        URL.revokeObjectURL(q.local.url);
+        q.local = null;
+      }
+      btn.textContent = "Đang lưu…";
+      const payload = { title, questions: editor.questions.map((q) => ({ text: q.text.trim(), options: q.options.map((o) => o.trim()), answer: q.answer, image: q.image || undefined })) };
+      const res = editor.id ? await api("PUT", "/api/sets/" + editor.id, payload) : await api("POST", "/api/sets", payload);
+      notify(`Đã lưu bộ câu hỏi “${title}” (${res.count} câu).`);
+      editor.dirty = false;
+      closeEditor();
+      loadSets();
+    } catch (err) { notify(err.message, "error"); }
+    finally { btn.disabled = false; btn.textContent = "Lưu bộ câu hỏi"; }
+  }
+
+  async function editSet(id) {
+    try {
+      const set = await api("GET", "/api/sets/" + id);
+      openEditor({ id: set.id, title: set.title, questions: set.questions, mode: "Sửa bộ câu hỏi" });
+    } catch (err) { notify(err.message, "error"); }
+  }
+
+  $("btn-new-set").addEventListener("click", () => openEditor({ title: "", questions: [], mode: "Soạn bộ câu hỏi mới" }));
+  $("ed-add").addEventListener("click", () => {
+    editor.questions.push(blankQuestion());
+    markDirty();
+    renderEditor();
+    const last = $("ed-questions").lastElementChild;
+    last.scrollIntoView({ block: "center", behavior: "smooth" });
+    last.querySelector("textarea").focus({ preventScroll: true });
+  });
+  $("ed-save").addEventListener("click", saveEditor);
+  $("ed-cancel").addEventListener("click", () => { if (editor.dirty && !confirm("Bỏ các thay đổi chưa lưu?")) return; closeEditor(); });
+  window.addEventListener("beforeunload", (e) => { if (editor.dirty && !$("set-editor").hidden) { e.preventDefault(); e.returnValue = ""; } });
 
   $("docx-input").addEventListener("change", async (e) => {
     const file = e.target.files[0];
     e.target.value = "";
     if (!file) return;
     if (!/\.docx$/i.test(file.name)) { notify("Hãy chọn tệp Word dạng .docx (Word 2007 trở lên). Tệp .doc cũ cần mở bằng Word rồi “Lưu thành” .docx.", "error"); return; }
-    if (file.size > 10 * 1024 * 1024) { notify("Tệp quá lớn (tối đa 10 MB).", "error"); return; }
+    if (file.size > 30 * 1024 * 1024) { notify("Tệp quá lớn (tối đa 30 MB).", "error"); return; }
     try {
       const result = await window.KiemTraDocx.parseDocx(await file.arrayBuffer());
-      state.parsed = result;
-      $("set-title").value = file.name.replace(/\.docx$/i, "").replace(/[_-]+/g, " ").trim();
-      const errs = $("set-errors");
-      errs.textContent = "";
-      if (result.errors.length) {
-        errs.append(el("strong", { text: `Có ${result.errors.length} lỗi cần sửa trong tệp Word rồi tải lại:` }), el("ul", {}, result.errors.slice(0, 30).map((m) => el("li", { text: m }))));
-        errs.hidden = false;
-      } else errs.hidden = true;
-      const okCount = result.questions.filter((q) => q.ok).length;
-      $("set-summary").textContent = `Đọc được ${result.questions.length} câu${result.errors.length ? `, ${okCount} câu hợp lệ` : ""}. Đáp án đúng có dấu ✓.`;
-      const prev = $("set-preview");
-      prev.replaceWith(Object.assign(previewList(result.questions), { id: "set-preview" }));
-      $("btn-save-set").disabled = !!result.errors.length || !result.questions.length;
-      $("set-preview-wrap").hidden = false;
-      $("set-preview-wrap").scrollIntoView({ block: "start", behavior: "smooth" });
+      if (!result.questions.length) { notify(result.errors[0] || "Không tìm thấy câu hỏi nào trong tệp.", "error"); return; }
+      openEditor({
+        title: file.name.replace(/\.docx$/i, "").replace(/[_-]+/g, " ").trim(),
+        questions: result.questions, issues: result.errors, warnings: result.warnings,
+        mode: `Đọc được ${result.questions.length} câu từ tệp “${file.name}” — kiểm tra rồi bấm Lưu`,
+      });
     } catch (err) { notify(err.message || "Không đọc được tệp Word.", "error"); }
   });
 
-  $("btn-cancel-set").addEventListener("click", () => { state.parsed = null; $("set-preview-wrap").hidden = true; });
-  $("btn-save-set").addEventListener("click", async () => {
-    const parsed = state.parsed;
-    const title = $("set-title").value.trim();
-    if (!parsed || parsed.errors.length) return;
-    if (!title) { notify("Nhập tên bộ câu hỏi.", "error"); $("set-title").focus(); return; }
-    $("btn-save-set").disabled = true;
+  /* ---------- Lớp học ---------- */
+
+  const classState = { list: [], editing: null };
+
+  function parseRoster(text) {
+    return String(text || "").split(/\r?\n/).map((line) => {
+      let cells = line.split("\t").map((c) => c.trim()).filter(Boolean);
+      if (cells.length > 1) cells = [cells.find((c) => /\p{L}\s+\p{L}/u.test(c) && !/\d{3,}/.test(c)) || cells.join(" ")];
+      return (cells[0] || "").replace(/^\s*\d+\s*[.)\-–]?\s+/, "").replace(/\s+/g, " ").trim();
+    }).filter((n) => n && /\p{L}/u.test(n));
+  }
+
+  async function loadClasses() {
     try {
-      const res = await api("POST", "/api/sets", { title, questions: parsed.questions.map(({ text, options, answer }) => ({ text, options, answer })) });
-      notify(`Đã lưu bộ câu hỏi “${title}” (${res.count} câu).`);
-      state.parsed = null;
-      $("set-preview-wrap").hidden = true;
-      loadSets();
-    } catch (err) { notify(err.message, "error"); $("btn-save-set").disabled = false; }
+      const res = await api("GET", "/api/classes");
+      classState.list = res.classes;
+      renderClasses();
+      fillClassSelect();
+    } catch (err) { notify(err.message, "error"); }
+  }
+
+  function renderClasses() {
+    const list = $("class-list");
+    list.textContent = "";
+    if (!classState.list.length) { list.append(el("div", { class: "kt-empty", text: "Chưa có lớp nào." })); return; }
+    for (const c of classState.list) {
+      const names = el("ol", { class: "kt-roster-list", hidden: true }, c.students.map((n) => el("li", { text: n })));
+      list.append(el("div", { class: "kt-item" },
+        el("div", {}, el("h3", { text: c.name }), el("p", { text: `${c.students.length} học viên · Cập nhật ${fmt(c.updatedAt)}` }), names),
+        el("div", { class: "kt-row" },
+          el("button", { class: "kt-btn kt-btn-ghost kt-btn-sm", type: "button", onclick: () => { names.hidden = !names.hidden; } }, "Xem"),
+          el("button", { class: "kt-btn kt-btn-ghost kt-btn-sm", type: "button", onclick: () => editClass(c) }, "Sửa"),
+          el("button", { class: "kt-btn kt-btn-danger kt-btn-sm", type: "button", onclick: () => deleteClass(c) }, "Xóa"))));
+    }
+  }
+
+  function editClass(c) {
+    const f = $("class-form");
+    classState.editing = c.id;
+    f.name.value = c.name;
+    f.students.value = c.students.join("\n");
+    $("class-form-title").textContent = "Sửa lớp";
+    $("class-cancel").hidden = false;
+    updateClassCount();
+    f.scrollIntoView({ block: "start", behavior: "smooth" });
+  }
+
+  function resetClassForm() {
+    const f = $("class-form");
+    f.reset();
+    classState.editing = null;
+    $("class-form-title").textContent = "Thêm lớp";
+    $("class-cancel").hidden = true;
+    updateClassCount();
+  }
+
+  function updateClassCount() { $("class-count").textContent = `${parseRoster($("class-form").students.value).length} học viên`; }
+  $("class-form").students.addEventListener("input", updateClassCount);
+  $("class-cancel").addEventListener("click", resetClassForm);
+
+  $("class-form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const f = e.target;
+    const students = parseRoster(f.students.value);
+    try {
+      if (classState.editing) await api("PUT", "/api/classes/" + classState.editing, { name: f.name.value, students });
+      else await api("POST", "/api/classes", { name: f.name.value, students });
+      notify(`Đã lưu lớp “${f.name.value.trim()}” (${students.length} học viên).`);
+      resetClassForm();
+      loadClasses();
+    } catch (err) { notify(err.message, "error"); }
   });
+
+  async function deleteClass(c) {
+    if (!confirm(`Xóa lớp “${c.name}”? Các đợt kiểm tra đã tạo cho lớp này vẫn giữ danh sách cũ.`)) return;
+    try { await api("DELETE", "/api/classes/" + c.id); notify("Đã xóa lớp."); loadClasses(); }
+    catch (err) { notify(err.message, "error"); }
+  }
 
   /* ---------- Đợt kiểm tra ---------- */
 
@@ -269,15 +525,43 @@
 
   function updateCountNote() {
     const sel = document.querySelector("#exam-form [name=setId]");
-    const set = state.sets.find((s) => String(s.id) === sel.value);
     const input = document.querySelector("#exam-form [name=questionCount]");
-    if (set) { input.max = set.count; $("exam-count-note").textContent = `Bộ này có ${set.count} câu. Để trống = lấy tất cả.`; }
+    const total = state.reopen ? state.reopen.totalInSet : (state.sets.find((s) => String(s.id) === sel.value) || {}).count;
+    if (total) { input.max = total; $("exam-count-note").textContent = `Có ${total} câu. Để trống = lấy tất cả.`; }
+  }
+
+  function fillClassSelect() {
+    const sel = document.querySelector("#exam-form [name=classId]");
+    const keep = sel.value;
+    sel.textContent = "";
+    sel.append(el("option", { value: "", text: "— Không dùng danh sách lớp (học viên tự gõ họ tên) —" }));
+    for (const c of classState.list) sel.append(el("option", { value: c.id, text: `${c.name} (${c.students.length} học viên)` }));
+    if (keep && classState.list.some((c) => String(c.id) === keep)) sel.value = keep;
   }
   document.querySelector("#exam-form [name=setId]").addEventListener("change", updateCountNote);
 
-  function openExamForm(setId) {
+  function openExamForm(setId, reopen) {
     const f = $("exam-form");
-    fillSetSelect(setId);
+    state.reopen = reopen || null;
+    $("set-field").hidden = !!reopen;
+    const note = $("reopen-note");
+    if (reopen) {
+      note.textContent = `Dùng lại toàn bộ câu hỏi và thiết lập của đợt “${reopen.title}”. Đợt mới có mã đề và bảng điểm riêng.`;
+      note.hidden = false;
+      const m = /^(.*)\(lần (\d+)\)\s*$/.exec(reopen.title);
+      f.title.value = m ? `${m[1].trim()} (lần ${+m[2] + 1})` : `${reopen.title} (lần 2)`;
+      f.durationMin.value = reopen.durationMin;
+      f.questionCount.value = reopen.count < reopen.totalInSet ? reopen.count : "";
+      f.shuffle.checked = reopen.shuffle;
+      f.oneAttempt.checked = reopen.oneAttempt;
+      f.showScore.checked = false;
+    } else {
+      note.hidden = true;
+      fillSetSelect(setId);
+    }
+    fillClassSelect();
+    loadClasses();
+    updateCountNote();
     const now = Date.now();
     f.opensAt.value = toLocalInput(now);
     f.closesAt.value = toLocalInput(now + 2 * 60 * 60 * 1000);
@@ -285,24 +569,35 @@
     f.scrollIntoView({ block: "start", behavior: "smooth" });
     f.title.focus();
   }
-  $("btn-new-exam").addEventListener("click", () => openExamForm());
-  $("btn-cancel-exam").addEventListener("click", () => { $("exam-form").hidden = true; });
+  $("btn-new-exam").addEventListener("click", () => { $("exam-form").reset(); openExamForm(); });
+  $("btn-cancel-exam").addEventListener("click", () => { $("exam-form").hidden = true; state.reopen = null; });
+  $("btn-reopen").addEventListener("click", () => {
+    const x = state.detail && state.detail.exam;
+    if (!x) return;
+    showExamHome();
+    loadExams();
+    $("exam-form").reset();
+    openExamForm(null, x);
+  });
 
   $("exam-form").addEventListener("submit", async (e) => {
     e.preventDefault();
     const f = e.target;
     const opensAt = fromLocalInput(f.opensAt.value);
     const closesAt = fromLocalInput(f.closesAt.value);
-    if (!f.setId.value) { notify("Chưa có bộ câu hỏi. Hãy tải bộ câu hỏi ở thẻ “Bộ câu hỏi”.", "error"); return; }
+    if (!state.reopen && !f.setId.value) { notify("Chưa có bộ câu hỏi. Hãy tải bộ câu hỏi ở thẻ “Bộ câu hỏi”.", "error"); return; }
     if (!(closesAt > opensAt)) { notify("Giờ đóng phải sau giờ mở.", "error"); return; }
     try {
       const res = await api("POST", "/api/exams", {
-        setId: Number(f.setId.value), title: f.title.value.trim(), durationMin: Number(f.durationMin.value),
+        ...(state.reopen ? { sourceExamId: state.reopen.id } : { setId: Number(f.setId.value) }),
+        classId: f.classId.value ? Number(f.classId.value) : undefined,
+        title: f.title.value.trim(), durationMin: Number(f.durationMin.value),
         questionCount: f.questionCount.value ? Number(f.questionCount.value) : undefined,
         opensAt, closesAt, shuffle: f.shuffle.checked, oneAttempt: f.oneAttempt.checked, showScore: f.showScore.checked,
       });
       f.reset();
       f.hidden = true;
+      state.reopen = null;
       notify(`Đã tạo đợt kiểm tra. Mã đề: ${res.code}`);
       openExam(res.id);
     } catch (err) { notify(err.message, "error"); }
@@ -324,7 +619,7 @@
       list.append(el("div", { class: "kt-item" },
         el("div", {},
           el("h3", {}, x.title, " ", el("span", { class: "kt-badge " + x.state, text: stateLabel[x.state] })),
-          el("p", {}, "Mã ", el("span", { class: "kt-code", text: x.code }), ` · ${x.count} câu · ${x.durationMin} phút · Đã nộp ${x.submitted}/${x.started}`),
+          el("p", {}, "Mã ", el("span", { class: "kt-code", text: x.code }), ` · ${x.className ? "Lớp " + x.className + " · " : ""}${x.count} câu · ${x.durationMin} phút · Đã nộp ${x.submitted}/${x.started}`),
           el("p", { text: `Mở ${fmt(x.opensAt)} → đóng ${fmt(x.closesAt)}` })),
         el("div", { class: "kt-row" }, el("button", { class: "kt-btn kt-btn-primary kt-btn-sm", type: "button", onclick: () => openExam(x.id) }, "Mở"))));
     }
@@ -364,7 +659,7 @@
   function renderDetail(d, full) {
     const x = d.exam;
     $("d-title").textContent = x.title;
-    $("d-meta").textContent = `${x.count}${x.count < x.totalInSet ? "/" + x.totalInSet : ""} câu · ${x.durationMin} phút · Mở ${fmt(x.opensAt)} → đóng ${fmt(x.closesAt)}` +
+    $("d-meta").textContent = `${x.className ? "Lớp " + x.className + " (" + x.rosterSize + " học viên) · " : ""}${x.count}${x.count < x.totalInSet ? "/" + x.totalInSet : ""} câu · ${x.durationMin} phút · Mở ${fmt(x.opensAt)} → đóng ${fmt(x.closesAt)}` +
       `${x.shuffle ? " · Trộn câu" : ""}${x.oneAttempt ? " · Mỗi người 1 lần" : ""}`;
     const badge = $("d-state");
     badge.className = "kt-badge " + x.state;
@@ -385,12 +680,12 @@
     const best = submitted.length ? Math.max(...submitted.map((a) => ten(a.score, a.total))) : 0;
     const sum = $("d-summary");
     sum.textContent = "";
-    [[d.attempts.length, "đã vào làm"], [submitted.length, "đã nộp"], [submitted.length ? avg.toLocaleString("vi-VN", { maximumFractionDigits: 1 }) : "—", "điểm trung bình"], [submitted.length ? best.toLocaleString("vi-VN") : "—", "điểm cao nhất"]]
+    [[x.className ? `${d.attempts.length}/${x.rosterSize}` : d.attempts.length, "đã vào làm"], [submitted.length, "đã nộp"], [submitted.length ? avg.toLocaleString("vi-VN", { maximumFractionDigits: 1 }) : "—", "điểm trung bình"], [submitted.length ? best.toLocaleString("vi-VN") : "—", "điểm cao nhất"]]
       .forEach(([v, l]) => sum.append(el("div", { class: "kt-fact" }, el("b", { text: String(v) }), el("span", { text: l }))));
 
     const body = $("d-attempts");
     body.textContent = "";
-    if (!d.attempts.length) body.append(el("tr", {}, el("td", { colspan: 7, class: "kt-muted", text: "Chưa có học viên nào vào làm bài." })));
+    if (!d.attempts.length && !d.absent.length) body.append(el("tr", {}, el("td", { colspan: 7, class: "kt-muted", text: "Chưa có học viên nào vào làm bài." })));
     d.attempts.forEach((a, i) => {
       const done = a.status === "submitted";
       body.append(el("tr", {},
@@ -401,6 +696,12 @@
         el("td", { class: "num", text: done ? `${a.score}/${a.total}` : "—" }),
         el("td", { class: "num", text: done ? ten(a.score, a.total).toLocaleString("vi-VN") : "—" }),
         el("td", {}, el("button", { class: "kt-btn kt-btn-danger kt-btn-sm", type: "button", onclick: () => deleteAttempt(a) }, "Xóa"))));
+    });
+    d.absent.forEach((name, i) => {
+      body.append(el("tr", { class: "kt-absent" },
+        el("td", { class: "num", text: d.attempts.length + i + 1 }),
+        el("td", { text: name }),
+        el("td", { colspan: 5 }, el("span", { class: "kt-badge closed", text: "Chưa làm" }))));
     });
 
     const stats = $("d-stats");
@@ -500,6 +801,7 @@
       const notes = [done ? (a.finishReason === "timeout" ? "Tự nộp khi hết giờ" : "") : "Chưa nộp", a.duplicateName ? "Trùng tên" : ""].filter(Boolean).join("; ");
       rows.push([i + 1, a.name, fmtShort(a.startedAt), done ? fmtShort(a.submittedAt) : "", done ? a.score : "", done ? a.total : "", done ? ten(a.score, a.total) : "", notes]);
     });
+    d.absent.forEach((name, i) => rows.push([d.attempts.length + i + 1, name, "", "", "", "", "", "Chưa làm"]));
     try {
       const blob = await buildXlsx("Bang diem", rows, [6, 30, 18, 18, 12, 12, 15, 24]);
       const safe = d.exam.title.normalize("NFD").replace(/\p{M}/gu, "").replace(/đ/g, "d").replace(/Đ/g, "D").replace(/[^A-Za-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 60) || "bang-diem";
