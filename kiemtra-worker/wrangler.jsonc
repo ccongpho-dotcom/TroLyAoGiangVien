@@ -7,7 +7,7 @@
   "vars": {
     "ALLOWED_ORIGINS": "https://ccongpho-dotcom.github.io",
     // Đặt "0" sau khi đã tạo tài khoản quản trị đầu tiên.
-    "SETUP_OPEN": "1"
+    "SETUP_OPEN": "0"
   },
   "d1_databases": [
     { "binding": "DB", "database_name": "tlagv-kiemtra-db", "database_id": "8411eb4e-a29f-4204-8121-f4b8ffcb7c80" }
