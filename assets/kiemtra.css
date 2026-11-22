@@ -185,3 +185,17 @@ button { cursor: pointer; }
 .kt-q-figure { margin: -4px 0 18px; }
 .kt-q-figure img { display: block; width: auto; max-width: 100%; max-height: 52vh; margin: 0 auto; object-fit: contain; border: 1px solid var(--line); border-radius: 12px; background: #fff; }
 .kt-q-figure a { display: block; margin-top: 6px; text-align: center; font-size: .82rem; color: var(--teal); }
+
+/* Điện thoại: thanh trên gọn, bảng cuộn ngang thay vì bị bóp hẹp */
+.kt-me-line { display: none; }
+@media (max-width: 640px) {
+  .kt-topbar { gap: 8px; padding-left: 12px; padding-right: 12px; }
+  .kt-topbar:has(#top-actions:not([hidden])) .kt-brand span { display: none; }
+  .kt-user { display: none; }
+  .kt-top-actions .kt-btn-light { min-height: 38px; padding: 6px 10px; font-size: .8rem; white-space: nowrap; }
+  .kt-me-line { display: block; margin: -6px 0 12px; color: var(--muted); font-size: .85rem; }
+  .kt-table { min-width: 620px; }
+  .kt-table td:nth-child(2) { min-width: 180px; }
+  .kt-tabs { margin-left: -4px; margin-right: -4px; }
+  .kt-tab { padding: 8px 12px; font-size: .92rem; }
+}

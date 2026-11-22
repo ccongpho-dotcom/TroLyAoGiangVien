@@ -145,6 +145,7 @@
   function enterApp(user) {
     state.user = user;
     $("top-user").textContent = user.displayName + (user.role === "admin" ? " · Quản trị" : "");
+    $("me-line-name").textContent = user.displayName + (user.role === "admin" ? " (quản trị)" : "");
     $("tab-accounts").hidden = user.role !== "admin";
     views("view-app");
     selectTab("exams");
