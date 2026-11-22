@@ -492,6 +492,24 @@
   $("class-form").students.addEventListener("input", updateClassCount);
   $("class-cancel").addEventListener("click", resetClassForm);
 
+  $("roster-file").addEventListener("change", async (e) => {
+    const file = e.target.files[0];
+    e.target.value = "";
+    if (!file) return;
+    if (file.size > 10 * 1024 * 1024) { notify("Tệp quá lớn (tối đa 10 MB).", "error"); return; }
+    try {
+      const r = await window.KiemTraRoster.parseFile(file);
+      if (!r.students.length) { notify("Không tìm thấy họ tên nào trong tệp. Hãy ghi họ tên dưới cột “Họ và tên” theo mẫu (dòng ví dụ được bỏ qua).", "error"); return; }
+      const f = $("class-form");
+      if (r.className && (!f.name.value.trim() || !classState.editing)) f.name.value = r.className;
+      else if (!f.name.value.trim()) f.name.value = file.name.replace(/\.[^.]+$/, "").replace(/[_-]+/g, " ").trim();
+      f.students.value = r.students.join("\n");
+      updateClassCount();
+      notify(`Đã đọc ${r.students.length} học viên từ “${file.name}”. Kiểm tra danh sách rồi bấm “Lưu lớp”.` + (r.warnings.length ? " " + r.warnings.join(" ") : ""), r.warnings.length ? "warn" : "");
+      f.students.scrollIntoView({ block: "center", behavior: "smooth" });
+    } catch (err) { notify(err.message || "Không đọc được tệp.", "error"); }
+  });
+
   $("class-form").addEventListener("submit", async (e) => {
     e.preventDefault();
     const f = e.target;

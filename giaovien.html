@@ -202,7 +202,13 @@
       <div id="panel-classes" role="tabpanel" aria-labelledby="tab-classes" hidden>
         <form id="class-form" class="kt-card" style="margin-bottom:18px" novalidate>
           <h2 id="class-form-title">Thêm lớp</h2>
-          <p class="kt-lead">Dán cột họ tên từ Excel hoặc gõ mỗi dòng một học viên. Tên trùng nhau cần thêm thông tin phân biệt, ví dụ năm sinh.</p>
+          <p class="kt-lead">Nhập từ tệp Excel hoặc Word theo mẫu, dán cột họ tên từ Excel, hoặc gõ mỗi dòng một học viên. Tên trùng nhau cần thêm thông tin phân biệt, ví dụ năm sinh.</p>
+          <div class="kt-row" style="margin-bottom:16px">
+            <a class="kt-btn kt-btn-ghost kt-btn-sm" href="assets/mau-danh-sach-lop.xlsx" download>Tải mẫu Excel</a>
+            <a class="kt-btn kt-btn-ghost kt-btn-sm" href="assets/mau-danh-sach-lop.docx" download>Tải mẫu Word</a>
+            <label class="kt-btn kt-btn-primary kt-btn-sm" for="roster-file">Nhập từ tệp (Excel/Word)…</label>
+            <input id="roster-file" type="file" accept=".xlsx,.docx,.csv,.txt,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.openxmlformats-officedocument.wordprocessingml.document" class="sr-only">
+          </div>
           <label class="kt-field"><span>Tên lớp</span><input name="name" class="kt-input" maxlength="120" placeholder="Ví dụ: CNTT K10 — Lớp 1" required></label>
           <label class="kt-field"><span>Danh sách học viên</span><textarea name="students" class="kt-textarea" rows="10" placeholder="Nguyễn Văn An&#10;Lê Thị Hoa&#10;Phạm Minh Đức"></textarea><small id="class-count">0 học viên</small></label>
           <div class="kt-row">
@@ -257,6 +263,7 @@
   <script src="assets/vendor/jszip.min.js"></script>
   <script src="assets/vendor/qrcode-generator.js"></script>
   <script src="assets/kiemtra-docx.js?v=20261122-kt2"></script>
-  <script src="assets/giaovien.js?v=20261122-kt2"></script>
+  <script src="assets/kiemtra-roster.js?v=20261122-kt3"></script>
+  <script src="assets/giaovien.js?v=20261122-kt3"></script>
 </body>
 </html>
