@@ -10,6 +10,6 @@
     "SETUP_OPEN": "1"
   },
   "d1_databases": [
-    { "binding": "DB", "database_name": "tlagv-kiemtra-db", "database_id": "00000000-0000-0000-0000-000000000000" }
+    { "binding": "DB", "database_name": "tlagv-kiemtra-db", "database_id": "8411eb4e-a29f-4204-8121-f4b8ffcb7c80" }
   ]
 }
